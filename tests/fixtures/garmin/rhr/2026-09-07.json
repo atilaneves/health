@@ -1,0 +1,15 @@
+{
+ "userProfilePK": 1,
+ "statisticsStartDate": "2026-09-07",
+ "statisticsEndDate": "2026-09-07",
+ "allMetrics": {
+  "metricsMap": {
+   "WELLNESS_RESTING_HEART_RATE": [
+    {
+     "value": 51.0,
+     "calendarDate": "2026-09-07"
+    }
+   ]
+  }
+ }
+}

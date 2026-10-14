@@ -1,0 +1,19 @@
+{
+ "calendarDate": "2026-09-15",
+ "totalSteps": 7834,
+ "totalDistanceMeters": 6110.52,
+ "restingHeartRate": 56,
+ "minHeartRate": 52,
+ "maxHeartRate": 150,
+ "averageStressLevel": 43,
+ "maxStressLevel": 90,
+ "bodyBatteryHighestValue": 90,
+ "bodyBatteryLowestValue": 15,
+ "bodyBatteryChargedValue": 70,
+ "bodyBatteryDrainedValue": 65,
+ "moderateIntensityMinutes": 37,
+ "vigorousIntensityMinutes": 5,
+ "totalKilocalories": 2400,
+ "activeKilocalories": 500,
+ "floorsAscended": 9.0
+}

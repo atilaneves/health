@@ -1,0 +1,16 @@
+# Personal health data and anything derived from it — never commit
+raw/
+data/
+site/
+
+# Python / tooling
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Interrupted atomic writes
+*.tmp

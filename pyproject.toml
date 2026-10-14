@@ -1,0 +1,23 @@
+[project]
+name = "health"
+version = "0.1.0"
+description = "Custom graphs from Tanita and Garmin data"
+requires-python = ">=3.12"
+dependencies = [
+    "duckdb",
+    "polars",
+    "plotly",
+    "garminconnect>=0.3.17",
+    "keyring>=25.7.0",
+    "requests>=2.34.2",
+]
+
+[dependency-groups]
+dev = ["pytest"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/health"]

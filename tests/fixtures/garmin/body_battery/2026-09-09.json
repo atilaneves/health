@@ -1,0 +1,14 @@
+[
+ {
+  "date": "2026-09-09",
+  "charged": 70,
+  "drained": 65,
+  "startTimestampGMT": "2026-09-09T00:00:00.0",
+  "bodyBatteryValuesArray": [
+   [
+    1788912000000,
+    60
+   ]
+  ]
+ }
+]

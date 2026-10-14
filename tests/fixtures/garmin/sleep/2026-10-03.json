@@ -1,0 +1,21 @@
+{
+ "dailySleepDTO": {
+  "calendarDate": "2026-10-03",
+  "sleepTimeSeconds": 24880,
+  "sleepStartTimestampGMT": 1790976404408,
+  "sleepEndTimestampGMT": 1791003084408,
+  "sleepStartTimestampLocal": 1790980004408,
+  "sleepEndTimestampLocal": 1791006684408,
+  "deepSleepSeconds": 4229,
+  "remSleepSeconds": 5473,
+  "lightSleepSeconds": 14578,
+  "awakeSleepSeconds": 1800,
+  "sleepScores": {
+   "overall": {
+    "value": 69,
+    "qualifierKey": "GOOD"
+   }
+  }
+ },
+ "restingHeartRate": 57
+}
