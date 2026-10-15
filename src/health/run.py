@@ -1,10 +1,11 @@
 """Do the obvious thing: fetch whatever wasn't fetched today, log in only when a source needs it,
-rebuild the page and open it. Invoked by ./run.sh.
+rebuild the page, publish it (encrypted) for the phone and open it. Invoked by ./run.sh.
 
     ./run.sh               # normal use
     ./run.sh --refresh     # ignore today's cache
-    ./run.sh --offline     # never touch the network
+    ./run.sh --offline     # never touch the network (so no publishing either)
     ./run.sh --no-open     # don't open the browser
+    ./run.sh --no-publish  # don't publish to GitHub Pages
 """
 
 from __future__ import annotations
@@ -13,7 +14,7 @@ import argparse
 import webbrowser
 from collections.abc import Callable
 
-from health import build
+from health import build, publish
 from health.garmin import auth as garmin_auth
 from health.garmin import fetch as garmin_fetch
 from health.tanita import auth as tanita_auth
@@ -40,6 +41,7 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--refresh", action="store_true", help="ignore today's cache")
     p.add_argument("--offline", action="store_true", help="never touch the network")
     p.add_argument("--no-open", action="store_true", help="don't open the page in the browser")
+    p.add_argument("--no-publish", action="store_true", help="don't publish the page to GitHub Pages")
     a = p.parse_args(argv)
 
     if not a.offline:
@@ -54,6 +56,11 @@ def main(argv: list[str] | None = None) -> int:
 
     page = build.render()
     print(f"page: {page}")
+    if not (a.offline or a.no_publish):
+        try:
+            print(f"published: {publish.publish()}")
+        except publish.PublishError as e:
+            print(f"not published: {e}")
     if not a.no_open:
         webbrowser.open(page.as_uri())
     return 0

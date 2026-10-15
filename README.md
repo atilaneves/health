@@ -12,9 +12,18 @@ Custom graphs of my Garmin and Tanita data, because the apps' own graphs aren't 
 ./run.sh --no-open     # same, without opening a browser tab
 ./run.sh --offline     # rebuild from the cache only
 ./run.sh --refresh     # ignore today's cache
+./run.sh --no-publish  # don't publish to GitHub Pages
 ```
 
 The output is `site/index.html`.
+
+## On the phone
+
+`run.sh` also publishes the page to https://atilaneves.github.io/health/, encrypted with a password by [StatiCrypt](https://github.com/robinmoisson/staticrypt): the page decrypts in the browser.
+
+- Set the password once with `uv run python -m health.publish set-password`. It's kept in the system keyring.
+- The `gh-pages` branch is force-pushed as a single commit, so old copies don't accumulate.
+- The salt lives in `~/.local/share/health/pages_salt` and stays fixed, so "Remember me" on the phone survives republishing.
 
 ## How it works
 
@@ -34,7 +43,7 @@ mytanita.eu ────┘                    └─ body_comp ─────�
   - a 7-day trailing average, broken across gaps of more than 7 days;
   - a trend: a local linear trend (a level plus a slowly drifting slope) fitted by a Kalman filter and smoother, with a ±1σ band. Across gaps of more than 7 days it becomes a dotted curve that never overshoots the trend at either end. The subtitle gives its current slope per week.
 
-  The page opens on the last month. It has range buttons, x-zoom with an auto-fitted y-axis, and page-wide toggles.
+  The page opens on the last month. It has range buttons, x-zoom with an auto-fitted y-axis, page-wide toggles and a Reset zoom button.
 
 ## Logins
 

@@ -21,12 +21,15 @@ h1{{font-size:22px;margin:8px 0 4px}} h2{{font-size:15px;color:#52514e;font-weig
 .toggles{{position:sticky;top:0;z-index:10;background:#f9f9f7;padding:8px 0;display:flex;gap:18px;
   flex-wrap:wrap;font-size:14px;border-bottom:1px solid #ebeae6}}
 .toggles label{{display:flex;align-items:center;gap:6px;cursor:pointer}}
+.toggles button{{margin-left:auto;font:inherit;font-size:13px;color:#52514e;background:#f0efec;
+  border:1px solid #ebeae6;border-radius:6px;padding:2px 10px;cursor:pointer}}
 </style></head><body><main>
 <h1>Health</h1><div class="meta">{meta}</div>
 <div class="toggles">
 <label><input type="checkbox" data-kind="readings" checked> Readings</label>
 <label><input type="checkbox" data-kind="avg" checked> 7-day average</label>
 <label><input type="checkbox" data-kind="trend" checked> Trend</label>
+<button type="button" id="reset">Reset zoom</button>
 </div>
 <h2>Garmin</h2>{garmin}
 <h2>Tanita</h2>{tanita}
@@ -53,6 +56,14 @@ function fitY(g) {{
   Plotly.relayout(g, {{"yaxis.range": [lo - pad, hi + pad]}}).then(() => g._fitting = false);
 }}
 const charts = [...document.querySelectorAll(".js-plotly-plot")];
+// Reset zoom: every chart back to the view it opened on, with that range button highlighted.
+const initial = new Map(charts.map(g => [g, {{range: [...g.layout.xaxis.range], active: g.layout.updatemenus[0].active}}]));
+document.getElementById("reset").addEventListener("click", () => {{
+  for (const g of charts) {{
+    const v = initial.get(g);
+    Plotly.relayout(g, {{"xaxis.range": [...v.range], "updatemenus[0].active": v.active}});
+  }}
+}});
 for (const g of charts) {{
   g.on("plotly_relayout", ev => {{ if (!g._fitting && !("yaxis.range" in ev)) fitY(g); }});
   fitY(g);
