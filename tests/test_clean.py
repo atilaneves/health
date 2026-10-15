@@ -2,7 +2,7 @@ from datetime import date, datetime, timedelta
 
 import pytest
 
-from health.clean import loess, trailing_mean
+from health.clean import kalman_trend, trailing_mean
 
 D = date.fromisoformat
 
@@ -28,32 +28,30 @@ def test_timestamps_and_unsorted_input():
     assert m[-1][1] == pytest.approx(4.0)
 
 
-def test_loess_follows_a_straight_line_away_from_the_edges():
-    pts = [(D("2026-01-01") + timedelta(days=i), 70.0 + 0.1 * i) for i in range(0, 60, 3)]
-    out = {t.date(): v for t, v in loess(pts, 14)}
-    assert out[D("2026-01-31")] == pytest.approx(73.0, abs=0.01)  # symmetric window: no bias
+def test_kalman_follows_a_noisy_line_to_the_right_edge():
+    noise = [0.3, -0.2, 0.1, -0.3, 0.2, -0.1]
+    pts = [(D("2026-01-01") + timedelta(days=i), 70.0 - 0.05 * i + noise[i % 6]) for i in range(60)]
+    trend, (slope, sd) = kalman_trend(pts, 4)
+    assert trend[-1][0] == datetime(2026, 3, 1)  # ends exactly at the last reading
+    assert trend[-1][1] == pytest.approx(70.0 - 0.05 * 59, abs=0.2)
+    assert slope == pytest.approx(-0.05, abs=2 * sd)
+    assert sd > 0
 
 
-def test_loess_stops_where_too_few_readings():
-    pts = [(D("2026-01-01"), 70.0), (D("2026-01-02"), 71.0), (D("2026-01-03"), 72.0), (D("2026-06-01"), 80.0)]
-    out = {t.date(): v for t, v in loess(pts, 7)}
-    assert out[D("2026-01-02")] is not None
-    assert out[D("2026-03-01")] is None and out[D("2026-06-01")] is None
+def test_kalman_marks_and_bridges_gaps():
+    pts = [(D("2026-01-01") + timedelta(days=i), 70.0) for i in range(5)]
+    pts += [(D("2026-03-01") + timedelta(days=i), 72.0) for i in range(5)]
+    out = {t.date(): (v, gap) for t, v, _, gap in kalman_trend(pts, 4)[0]}
+    assert not out[D("2026-01-03")][1]
+    assert out[D("2026-01-20")][1]  # in the gap
+    assert out[D("2026-02-25")][1]  # within 7 days of a reading, but only on one side
+    bridge = [v for d, (v, gap) in sorted(out.items()) if gap and D("2026-01-10") < d < D("2026-02-20")]
+    assert bridge == sorted(bridge) and 70.0 <= bridge[0] and bridge[-1] <= 72.0  # monotone, no bulge
 
 
-def test_loess_never_extrapolates_past_the_readings():
-    # three readings bunched at the start of a window used to fling the line far beyond them
-    pts = [(datetime(2026, 1, 1, 8), 120.0), (datetime(2026, 1, 1, 9), 150.0), (datetime(2026, 1, 2, 8), 125.0)]
-    vals = [v for _, v in loess(pts, 30) if v is not None]
-    assert vals and all(120 <= v <= 150 for v in vals)
-    assert all(v is None for t, v in loess(pts, 30) if t.date() > D("2026-01-02"))
-
-
-def test_loess_does_not_bridge_a_gap_with_no_readings():
-    # readings until Aug 21, then from Oct 5: a ±30-day window reaches both sides of mid-September
-    pts = [(D("2026-08-01") + timedelta(days=i), 73.0) for i in range(0, 21, 2)]
-    pts += [(D("2026-10-05") + timedelta(days=i), 77.0) for i in range(10)]
-    out = {t.date(): v for t, v in loess(pts, 30)}
-    assert out[D("2026-09-20")] is None
-    assert out[D("2026-08-15")] is not None and out[D("2026-08-25")] is None   # past the last reading
-    assert out[D("2026-10-08")] is not None
+def test_kalman_gap_curve_passes_by_a_lone_reading():
+    pts = [(D("2026-01-01") + timedelta(days=i), 70.0) for i in range(5)]
+    pts += [(D("2026-02-01"), 75.0)]                                    # alone, mid-gap
+    pts += [(D("2026-03-01") + timedelta(days=i), 70.0) for i in range(5)]
+    out = {t.date(): v for t, v, _, _ in kalman_trend(pts, 4)[0]}
+    assert out[D("2026-02-01")] > 72.0

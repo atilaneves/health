@@ -30,10 +30,12 @@ def figure(title: str, y_title: str, height: int = 360) -> go.Figure:
 
 # (label, days back from the latest measurement); "YTD" and "All" are handled specially.
 RANGES = [("1W", 7), ("1M", 31), ("3M", 92), ("6M", 183), ("YTD", None), ("1Y", 365), ("2Y", 730), ("5Y", 1826)]
+DEFAULT_RANGE = "1M"
+TREND_DAYS = 4  # Kalman trend time scale: how fast the slope may change (see clean.kalman_trend)
 
 
 def time_range(fig: go.Figure, first: date | datetime, last: date | datetime) -> None:
-    """Range buttons anchored on the latest measurement, a range slider, and the initial view."""
+    """Range buttons anchored on the latest measurement, a range slider, and the initial view (1M)."""
     first, last = _day(first), _day(last)
     end = last + timedelta(days=3)
     buttons = []
@@ -42,13 +44,15 @@ def time_range(fig: go.Figure, first: date | datetime, last: date | datetime) ->
         if start > first:
             buttons.append((label, start))
     buttons.append(("All", first - timedelta(days=3)))
+    # Open on the last month, or on everything if there's less than a month of data.
+    active = next((i for i, (label, _) in enumerate(buttons) if label == DEFAULT_RANGE), len(buttons) - 1)
     fig.update_layout(updatemenus=[dict(
         type="buttons", direction="right", x=0, y=1.0, xanchor="left", yanchor="bottom", pad=dict(t=2, b=4),
         showactive=True, bgcolor="#f0efec", bordercolor=GRID, font=dict(size=11, color=INK_2),
-        active=len(buttons) - 1,
+        active=active,
         buttons=[dict(label=label, method="relayout", args=[{"xaxis.range": [start.isoformat(), end.isoformat()]}])
                  for label, start in buttons])])
-    fig.update_xaxes(range=[(first - timedelta(days=3)).isoformat(), end.isoformat()],
+    fig.update_xaxes(range=[buttons[active][1].isoformat(), end.isoformat()],
                      rangeslider=dict(visible=True, thickness=0.08, bgcolor="#f3f2ee", bordercolor=GRID))
     # Header rows: title at the very top, legend under it, range buttons just above the plot.
     fig.update_layout(height=fig.layout.height + 72, margin=dict(t=112))
@@ -60,40 +64,71 @@ def _day(x: date | datetime) -> date:
 
 
 def metric(fig: go.Figure, points: list[tuple], name: str, color: str, light: str, dark: str, unit: str,
-           fmt: str, loess_days: float, hover_time: str = "%a %d %b %Y %H:%M") -> list[tuple]:
+           fmt: str, trend_days: float = TREND_DAYS,
+           hover_time: str = "%a %d %b %Y %H:%M") -> tuple[list[tuple], tuple[float, float]]:
     """Raw readings as dots, plus their 7-day trailing mean as a spline. The average breaks wherever
-    readings are more than 7 days apart (a 7-day average can't span months); a straight line in the
-    lighter colour joins the two readings either side of each such gap. Returns the 7-day means."""
-    from health.clean import WINDOW_DAYS, loess, trailing_mean
+    readings are more than 7 days apart (a 7-day average can't span months). Also the Kalman trend,
+    with a ±1σ band where there are readings and a dotted line across gaps. Returns the 7-day means
+    and the trend's slope (per day) at the last reading, with its σ."""
+    from health.clean import WINDOW_DAYS, kalman_trend, trailing_mean
 
     means = trailing_mean(points)
-    pts = sorted(points, key=lambda p: p[0])  # same order as `means`
-    lx, ly, bx, by = [], [], [], []
+    lx, ly = [], []
     for i, (t, v) in enumerate(means):
         if i and (t - means[i - 1][0]).total_seconds() > WINDOW_DAYS * 86400:
             lx.append(None)
             ly.append(None)
-            bx += [pts[i - 1][0], pts[i][0], None]
-            by += [pts[i - 1][1], pts[i][1], None]
         lx.append(t)
         ly.append(v)
     # Each kind is its own legend group (one click toggles just it) and carries `meta` so the page's
     # checkboxes can toggle that kind across every chart.
     fig.add_scatter(x=[t for t, _ in points], y=[v for _, v in points], mode="markers", name=name,
                     legendgroup=f"{name} readings", meta="readings",
-                    marker=dict(color=light, size=8, line=dict(color=SURFACE, width=2)),
+                    marker=dict(color=color, size=8, line=dict(color=SURFACE, width=2)),
                     hovertemplate=f"%{{x|{hover_time}}}<br><b>%{{y:{fmt}}} {unit}</b><extra>{name}</extra>")
-    fig.add_scatter(x=bx, y=by, mode="lines", name=f"{name}, gap", legendgroup=f"{name} avg", meta="avg",
-                    showlegend=False, line=dict(color=light, width=1.5, dash="dot"), hoverinfo="skip")
     fig.add_scatter(x=lx, y=ly, mode="lines", name=f"{name}, 7-day avg", legendgroup=f"{name} avg", meta="avg",
-                    connectgaps=False, line=dict(color=color, width=2, dash="dash", shape="spline", smoothing=0.6),
+                    connectgaps=False, line=dict(color=light, width=2, dash="dash", shape="spline", smoothing=0.6),
                     hovertemplate=f"%{{x|%d %b %Y}}<br>7-day avg %{{y:{fmt}}} {unit}<extra></extra>")
-    trend = loess(points, loess_days)
-    fig.add_scatter(x=[t for t, _ in trend], y=[v for _, v in trend], mode="lines", connectgaps=False,
-                    name=f"{name}, LOESS ±{loess_days:g}d", legendgroup=f"{name} loess", meta="loess",
+    kalman, slope = kalman_trend(points, trend_days)
+    # Measured stretches get the solid line and the band; gaps get a lighter dotted line joining them.
+    kx = [t for t, _, _, _ in kalman]
+    ky = [None if gap else v for _, v, _, gap in kalman]
+    ksd = [None if gap else sd for _, _, sd, gap in kalman]
+    gx, gy = [], []
+    for i, (t, v, _, gap) in enumerate(kalman):
+        edge = not gap and ((i and kalman[i - 1][3]) or (i + 1 < len(kalman) and kalman[i + 1][3]))
+        if gap or edge:
+            gx.append(t)
+            gy.append(v)
+        elif gx and gx[-1] is not None:
+            gx.append(None)
+            gy.append(None)
+    fig.add_scatter(x=kx + kx[::-1], y=[v + sd if v is not None else None for v, sd in zip(ky, ksd)]
+                    + [v - sd if v is not None else None for v, sd in zip(ky[::-1], ksd[::-1])],
+                    mode="lines", fill="toself", fillcolor=_rgba(color, 0.12), line=dict(width=0),
+                    name=f"{name}, trend ±1σ", legendgroup=f"{name} trend", meta="trend",
+                    showlegend=False, hoverinfo="skip")
+    fig.add_scatter(x=gx, y=gy, mode="lines", connectgaps=False, name=f"{name}, trend across gap",
+                    legendgroup=f"{name} trend", meta="trend", showlegend=False,
+                    line=dict(color=dark, width=2, dash="dot"),
+                    hovertemplate=f"%{{x|%d %b %Y}}<br>Trend %{{y:{fmt}}} {unit} (no readings)<extra></extra>")
+    fig.add_scatter(x=kx, y=ky, customdata=ksd, mode="lines",
+                    connectgaps=False, name=f"{name}, trend", legendgroup=f"{name} trend", meta="trend",
                     line=dict(color=dark, width=3),
-                    hovertemplate=f"%{{x|%d %b %Y}}<br>LOESS %{{y:{fmt}}} {unit}<extra></extra>")
-    return means
+                    hovertemplate=f"%{{x|%d %b %Y}}<br>Trend %{{y:{fmt}}} ± %{{customdata:{fmt}}} {unit}"
+                                  "<extra></extra>")
+    return means, slope
+
+
+def _rgba(hex_color: str, alpha: float) -> str:
+    r, g, b = (int(hex_color[i:i + 2], 16) for i in (1, 3, 5))
+    return f"rgba({r},{g},{b},{alpha})"
+
+
+def slope_text(slope: tuple[float, float], unit: str, fmt: str) -> str:
+    """The trend's slope per week, with its σ, for a subtitle."""
+    b, sd = slope[0] * 7, slope[1] * 7
+    return f"trend {b:+{fmt}} ± {sd:{fmt}} {unit}/wk"
 
 
 def legend(fig: go.Figure) -> None:

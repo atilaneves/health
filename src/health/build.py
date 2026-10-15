@@ -26,10 +26,11 @@ h1{{font-size:22px;margin:8px 0 4px}} h2{{font-size:15px;color:#52514e;font-weig
 <div class="toggles">
 <label><input type="checkbox" data-kind="readings" checked> Readings</label>
 <label><input type="checkbox" data-kind="avg" checked> 7-day average</label>
-<label><input type="checkbox" data-kind="loess" checked> LOESS trend</label>
+<label><input type="checkbox" data-kind="trend" checked> Trend</label>
 </div>
 <h2>Garmin</h2>{garmin}
 <h2>Tanita</h2>{tanita}
+<h2>Blood pressure</h2>{blood_pressure}
 </main>
 <script>
 // Fit each chart's y-axis to the data inside the visible x-range (Plotly only does x).
@@ -84,13 +85,13 @@ def _card(fig, first: bool) -> str:
 def render(con=None) -> Path:
     con = con or connect()
     counts = load(con)
-    figs = [weight.figure(con), blood_pressure.figure(con)]
     tanita_figs = body.figures(con)
     meta = html.escape(f"Built {datetime.now():%Y-%m-%d %H:%M} · "
                        + " · ".join(f"{v} {k.replace('_', ' ')}" for k, v in counts.items()))
     page = PAGE.format(meta=meta,
-                       garmin="".join(_card(f, i == 0) for i, f in enumerate(figs)),
-                       tanita="".join(_card(f, False) for f in tanita_figs))
+                       garmin=_card(weight.figure(con), True),
+                       tanita="".join(_card(f, False) for f in tanita_figs),
+                       blood_pressure=_card(blood_pressure.figure(con), False))
     SITE_DIR.mkdir(parents=True, exist_ok=True)
     out = SITE_DIR / "index.html"
     out.write_text(page)

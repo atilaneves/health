@@ -6,8 +6,6 @@ import plotly.graph_objects as go
 
 from health.charts import style
 
-LOESS_DAYS = 30  # half-width of the LOESS window
-
 # ESH 2023 office thresholds (mmHg): normal < 130/85, high-normal < 140/90, hypertension >= 140/90.
 REFERENCES = [(140, "140 systolic"), (130, "130"), (90, "90 diastolic"), (85, "85")]
 
@@ -28,12 +26,14 @@ def figure(con) -> go.Figure:
         sy += [d, s, None]
     fig.add_scatter(x=sx, y=sy, mode="lines", line=dict(color=style.GRID, width=2), hoverinfo="skip",
                     showlegend=False)
-    sys_avg = style.metric(fig, [(r[0], r[1]) for r in rows], "Systolic", style.BLUE, style.BLUE_LIGHT,
-                           style.BLUE_DARK, "mmHg", ".0f", LOESS_DAYS)
-    dia_avg = style.metric(fig, [(r[0], r[2]) for r in rows], "Diastolic", style.ORANGE, style.ORANGE_LIGHT,
-                           style.ORANGE_DARK, "mmHg", ".0f", LOESS_DAYS)
+    sys_avg, sys_slope = style.metric(fig, [(r[0], r[1]) for r in rows], "Systolic", style.BLUE, style.BLUE_LIGHT,
+                           style.BLUE_DARK, "mmHg", ".0f")
+    dia_avg, dia_slope = style.metric(fig, [(r[0], r[2]) for r in rows], "Diastolic", style.ORANGE, style.ORANGE_LIGHT,
+                           style.ORANGE_DARK, "mmHg", ".0f")
     style.legend(fig)
     last = rows[-1]
-    style.subtitle(fig, f"latest {last[1]}/{last[2]} · 7-day avg {sys_avg[-1][1]:.0f}/{dia_avg[-1][1]:.0f}")
+    style.subtitle(fig, f"latest {last[1]}/{last[2]} · 7-day avg {sys_avg[-1][1]:.0f}/{dia_avg[-1][1]:.0f} · "
+                        f"systolic {style.slope_text(sys_slope, 'mmHg', '.1f')} · "
+                        f"diastolic {style.slope_text(dia_slope, 'mmHg', '.1f')}")
     style.time_range(fig, rows[0][0], rows[-1][0])
     return fig
