@@ -8,6 +8,7 @@ from health.charts import style
 
 MEASURES = [
     ("body_fat_pct", "Body fat", "%", ".1f"),
+    ("visceral_fat", "Visceral fat", "rating", ".1f"),
     ("muscle_mass_kg", "Muscle mass", "kg", ".1f"),
     ("muscle_quality", "Muscle quality", "score", ".0f"),
 ]

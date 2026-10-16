@@ -3,7 +3,7 @@
 Custom graphs of my Garmin and Tanita data, because the apps' own graphs aren't good enough.
 
 - **Garmin:** weight and blood pressure.
-- **Tanita:** body fat %, muscle mass and muscle quality.
+- **Tanita:** body fat %, visceral fat, muscle mass and muscle quality.
 
 ## Use
 

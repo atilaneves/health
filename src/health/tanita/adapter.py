@@ -12,6 +12,7 @@ from pathlib import Path
 
 COLUMNS = {
     "body_fat_pct": "Body Fat (%)",
+    "visceral_fat": "Visc Fat",
     "muscle_mass_kg": "Muscle Mass (kg)",
     "muscle_quality": "Muscle Quality",
 }
