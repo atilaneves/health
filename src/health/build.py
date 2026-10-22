@@ -29,6 +29,7 @@ h1{{font-size:22px;margin:8px 0 4px}} h2{{font-size:15px;color:#52514e;font-weig
 <label><input type="checkbox" data-kind="readings" checked> Readings</label>
 <label><input type="checkbox" data-kind="avg" checked> 7-day average</label>
 <label><input type="checkbox" data-kind="trend" checked> Trend</label>
+<label><input type="checkbox" data-kind="line"> Line between readings</label>
 <button type="button" id="reset">Reset zoom</button>
 </div>
 <h2>Garmin</h2>{garmin}
@@ -78,7 +79,7 @@ function setKind(kind, on) {{
 for (const box of document.querySelectorAll(".toggles input")) {{
   const key = "health.show." + box.dataset.kind;
   try {{ const v = localStorage.getItem(key); if (v !== null) box.checked = v === "1"; }} catch (e) {{}}
-  if (!box.checked) setKind(box.dataset.kind, false);
+  setKind(box.dataset.kind, box.checked);
   box.addEventListener("change", () => {{
     setKind(box.dataset.kind, box.checked);
     try {{ localStorage.setItem(key, box.checked ? "1" : "0"); }} catch (e) {{}}

@@ -9,6 +9,7 @@ INK, INK_2, INK_MUTED = "#0b0b0b", "#52514e", "#8a8984"
 GRID = "#ebeae6"
 BLUE, BLUE_LIGHT, BLUE_DARK = "#2a78d6", "#86b6ef", "#0d366b"   # slot 1; steps 250 and 700
 ORANGE, ORANGE_LIGHT, ORANGE_DARK = "#eb6834", "#f3a785", "#7a2d0f"
+TEAL, PURPLE = "#1a9e86", "#8a5cd6"   # straight lines joining the readings (off by default)
 
 
 def figure(title: str, y_title: str, height: int = 360) -> go.Figure:
@@ -64,9 +65,9 @@ def _day(x: date | datetime) -> date:
 
 
 def metric(fig: go.Figure, points: list[tuple], name: str, color: str, light: str, dark: str, unit: str,
-           fmt: str, trend_days: float = TREND_DAYS,
+           fmt: str, line: str = TEAL, trend_days: float = TREND_DAYS,
            hover_time: str = "%a %d %b %Y %H:%M") -> tuple[list[tuple], tuple[float, float]]:
-    """Raw readings as dots, plus their 7-day trailing mean as a spline. The average breaks wherever
+    """Raw readings as dots, optionally joined by straight lines (hidden at first), plus their 7-day trailing mean as a spline. The average breaks wherever
     readings are more than 7 days apart (a 7-day average can't span months). Also the Kalman trend,
     with a ±1σ band where there are readings and a dotted line across gaps. Returns the 7-day means
     and the trend's slope (per day) at the last reading, with its σ."""
@@ -81,7 +82,11 @@ def metric(fig: go.Figure, points: list[tuple], name: str, color: str, light: st
         lx.append(t)
         ly.append(v)
     # Each kind is its own legend group (one click toggles just it) and carries `meta` so the page's
-    # checkboxes can toggle that kind across every chart.
+    # checkboxes can toggle that kind across every chart. The joining line goes first so the dots sit on
+    # top of it, but last in the legend.
+    fig.add_scatter(x=[t for t, _ in points], y=[v for _, v in points], mode="lines", name=f"{name}, line",
+                    legendgroup=f"{name} line", meta="line", visible="legendonly", legendrank=1001,
+                    line=dict(color=line, width=1.5), hoverinfo="skip")
     fig.add_scatter(x=[t for t, _ in points], y=[v for _, v in points], mode="markers", name=name,
                     legendgroup=f"{name} readings", meta="readings",
                     marker=dict(color=color, size=8, line=dict(color=SURFACE, width=2)),

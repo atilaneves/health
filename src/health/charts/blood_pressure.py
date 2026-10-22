@@ -27,9 +27,9 @@ def figure(con) -> go.Figure:
     fig.add_scatter(x=sx, y=sy, mode="lines", line=dict(color=style.GRID, width=2), hoverinfo="skip",
                     showlegend=False)
     sys_avg, sys_slope = style.metric(fig, [(r[0], r[1]) for r in rows], "Systolic", style.BLUE, style.BLUE_LIGHT,
-                           style.BLUE_DARK, "mmHg", ".0f")
+                           style.BLUE_DARK, "mmHg", ".0f", line=style.TEAL)
     dia_avg, dia_slope = style.metric(fig, [(r[0], r[2]) for r in rows], "Diastolic", style.ORANGE, style.ORANGE_LIGHT,
-                           style.ORANGE_DARK, "mmHg", ".0f")
+                           style.ORANGE_DARK, "mmHg", ".0f", line=style.PURPLE)
     style.legend(fig)
     last = rows[-1]
     style.subtitle(fig, f"latest {last[1]}/{last[2]} · 7-day avg {sys_avg[-1][1]:.0f}/{dia_avg[-1][1]:.0f} · "

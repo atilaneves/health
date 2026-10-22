@@ -39,7 +39,7 @@ mytanita.eu ────┘                    └─ body_comp ─────�
 - **Adapters:** `garmin/weight.py`, `garmin/blood_pressure.py` and `tanita/adapter.py` are the only code that knows vendor formats. Each was written against real responses.
 - **Tables:** `schema.py` defines the tables, with local wall-clock timestamps. `load.py` rebuilds them from `raw/` on every run.
 - **Charts:** `charts/` reads only those tables. Each metric shows:
-  - the readings;
+  - the readings, optionally joined by straight lines (off by default);
   - a 7-day trailing average, broken across gaps of more than 7 days;
   - a trend: a local linear trend (a level plus a slowly drifting slope) fitted by a Kalman filter and smoother, with a ±1σ band. Across gaps of more than 7 days it becomes a dotted curve that never overshoots the trend at either end. The subtitle gives its current slope per week.
 
