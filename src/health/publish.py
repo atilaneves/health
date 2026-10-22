@@ -2,7 +2,7 @@
 on a phone. The repo and the Pages site are public; only the encrypted page leaves this machine.
 
     uv run python -m health.publish set-password   # once: choose the page password (kept in the keyring)
-    uv run python -m health.publish                # encrypt and push now (run.sh does this after building)
+    uv run python -m health.publish                # encrypt and push now (build.sh does this after building)
 
 The page is AES-encrypted in the browser by StatiCrypt, keyed from the password and a fixed salt kept
 next to the other local state. Keeping the salt fixed means "Remember me" on the phone survives

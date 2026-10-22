@@ -1,11 +1,11 @@
 """Do the obvious thing: fetch whatever wasn't fetched today, log in only when a source needs it,
-rebuild the page, publish it (encrypted) for the phone and open it. Invoked by ./run.sh.
+rebuild the page, publish it (encrypted) for the phone and open it. Invoked by ./build.sh.
 
-    ./run.sh               # normal use
-    ./run.sh --refresh     # ignore today's cache
-    ./run.sh --offline     # never touch the network (so no publishing either)
-    ./run.sh --no-open     # don't open the browser
-    ./run.sh --no-publish  # don't publish to GitHub Pages
+    ./build.sh               # normal use
+    ./build.sh --refresh     # ignore today's cache
+    ./build.sh --offline     # never touch the network (so no publishing either)
+    ./build.sh --no-open     # don't open the browser
+    ./build.sh --no-publish  # don't publish to GitHub Pages
 """
 
 from __future__ import annotations
@@ -37,7 +37,7 @@ def _sync(name: str, fetch: Callable[[], None], login: Callable[[], None], auth_
 
 
 def main(argv: list[str] | None = None) -> int:
-    p = argparse.ArgumentParser(prog="run.sh", description=__doc__.split("\n\n")[0])
+    p = argparse.ArgumentParser(prog="build.sh", description=__doc__.split("\n\n")[0])
     p.add_argument("--refresh", action="store_true", help="ignore today's cache")
     p.add_argument("--offline", action="store_true", help="never touch the network")
     p.add_argument("--no-open", action="store_true", help="don't open the page in the browser")

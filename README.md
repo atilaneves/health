@@ -8,18 +8,18 @@ Custom graphs of my Garmin and Tanita data, because the apps' own graphs aren't 
 ## Use
 
 ```
-./run.sh               # fetch what wasn't fetched today, log in if needed, rebuild, open the page
-./run.sh --no-open     # same, without opening a browser tab
-./run.sh --offline     # rebuild from the cache only
-./run.sh --refresh     # ignore today's cache
-./run.sh --no-publish  # don't publish to GitHub Pages
+./build.sh               # fetch what wasn't fetched today, log in if needed, rebuild, open the page
+./build.sh --no-open     # same, without opening a browser tab
+./build.sh --offline     # rebuild from the cache only
+./build.sh --refresh     # ignore today's cache
+./build.sh --no-publish  # don't publish to GitHub Pages
 ```
 
 The output is `site/index.html`.
 
 ## On the phone
 
-`run.sh` also publishes the page to https://atilaneves.github.io/health/, encrypted with a password by [StatiCrypt](https://github.com/robinmoisson/staticrypt): the page decrypts in the browser.
+`build.sh` also publishes the page to https://atilaneves.github.io/health/, encrypted with a password by [StatiCrypt](https://github.com/robinmoisson/staticrypt): the page decrypts in the browser.
 
 - Set the password once with `uv run python -m health.publish set-password`. It's kept in the system keyring.
 - The `gh-pages` branch is force-pushed as a single commit, so old copies don't accumulate.
@@ -54,7 +54,7 @@ mytanita.eu ────┘                    └─ body_comp ─────�
   - The password is kept in the system keyring and the session cookies in `~/.local/share/health/tanita/`.
   - It logs in again only when the saved session is rejected.
 
-`run.sh` starts either login by itself when it's needed.
+`build.sh` starts either login by itself when it's needed.
 
 ## Never committed
 
