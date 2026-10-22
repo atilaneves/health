@@ -3,7 +3,7 @@
 Shape verified against a real response (2026-10-22): a list of activities, each with activityId,
 activityName, activityType.typeKey, startTimeLocal like '2026-10-20 17:40:09', distance (m),
 averageSpeed (m/s), calories (kcal), averageHR and maxHR (missing on some older ones), and
-startLatitude/startLongitude.
+startLatitude/startLongitude, and vO2MaxValue (ml/kg/min, only on outdoor runs).
 """
 
 from __future__ import annotations
@@ -30,5 +30,6 @@ def rows(entries: list[Entry]) -> list[tuple]:
     return [(datetime.fromisoformat(a["startTimeLocal"]), a["activityType"]["typeKey"], a.get("activityName"),
              a["distance"] / 1000 if a.get("distance") else None,
              a["averageSpeed"] * 3.6 if a.get("averageSpeed") else None, a.get("calories") or None,
-             a.get("averageHR"), a.get("maxHR"), a.get("startLatitude"), a.get("startLongitude"))
+             a.get("averageHR"), a.get("maxHR"), a.get("startLatitude"), a.get("startLongitude"),
+             a.get("vO2MaxValue"))
             for a in merged(entries)]

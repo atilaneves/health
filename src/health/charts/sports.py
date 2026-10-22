@@ -4,6 +4,9 @@ measure on its own y-axis (heart rates share one).
 Football was recorded as running until FOOTBALL_SINCE, and nearly always at the Founex pitch, so a
 run that starts there is football before that date. From then on football is its own activity type;
 a run at the pitch is never counted as running either way.
+
+VO2max is its own chart: it's Garmin's estimate of fitness, not a measure of one sport, so it takes
+every activity that has one (in practice outdoor runs, football at the pitch included).
 """
 
 from __future__ import annotations
@@ -25,6 +28,7 @@ TREND_DAYS = 30
 GAP_DAYS = 21
 TREND_STEP = 7  # a month-scale trend over ten years: weekly points are plenty, and far quicker to draw
 DEFAULT_RANGE = "3M"
+VO2MAX_RANGE = "1Y"  # a whole number that moves a point every few months: 3 months is a flat line
 
 AT_PITCH = f"abs(lat - {PITCH_LAT}) < {PITCH_DEG} AND abs(lon - {PITCH_LON}) < {PITCH_DEG}"
 FOOTBALL = (f"(type = 'running' AND {AT_PITCH} AND ts < DATE '{FOOTBALL_SINCE}') OR "
@@ -48,7 +52,22 @@ AXES = {  # axis -> (title, side, tick format)
 
 def figures(con) -> list[go.Figure]:
     return [_figure(con, "Football", FOOTBALL, [HR_AVG, HR_MAX, DISTANCE, CALORIES]),
-            _figure(con, "Running", RUNNING, [DISTANCE, SPEED, HR_AVG, HR_MAX, CALORIES])]
+            _figure(con, "Running", RUNNING, [DISTANCE, SPEED, HR_AVG, HR_MAX, CALORIES]),
+            _vo2max(con)]
+
+
+def _vo2max(con) -> go.Figure:
+    pts = con.execute("SELECT ts, vo2max FROM activities WHERE vo2max IS NOT NULL ORDER BY ts").fetchall()
+    fig = style.figure("VO2max", "VO2max (ml/kg/min)", height=400)
+    if not pts:
+        style.subtitle(fig, "no estimates yet")
+        return fig
+    _, slope = style.metric(fig, pts, "VO2max", style.BLUE, None, style.BLUE_DARK, "ml/kg/min", ".0f",
+                            trend_days=TREND_DAYS, avg=False, gap_days=GAP_DAYS, trend_step=TREND_STEP)
+    style.legend(fig)
+    style.subtitle(fig, f"latest {pts[-1][1]:.0f} ml/kg/min · " + style.slope_text(slope, "ml/kg/min", ".2f"))
+    style.time_range(fig, pts[0][0], pts[-1][0], VO2MAX_RANGE)
+    return fig
 
 
 def _figure(con, title: str, where: str, measures: list[tuple]) -> go.Figure:

@@ -31,11 +31,13 @@ CREATE OR REPLACE TABLE activities (
   avg_hr DOUBLE,
   max_hr DOUBLE,
   lat DOUBLE,               -- where it started
-  lon DOUBLE
+  lon DOUBLE,
+  vo2max DOUBLE             -- Garmin's VO2max estimate after it, ml/kg/min (runs only)
 );
 """
 
 WEIGH_INS = ("date", "ts", "weight_kg")
 BLOOD_PRESSURE = ("ts", "systolic", "diastolic", "pulse")
 BODY_COMP = ("ts", "weight_kg", "body_fat_pct", "visceral_fat", "muscle_mass_kg", "muscle_quality")
-ACTIVITIES = ("ts", "type", "name", "distance_km", "avg_speed_kmh", "calories", "avg_hr", "max_hr", "lat", "lon")
+ACTIVITIES = ("ts", "type", "name", "distance_km", "avg_speed_kmh", "calories", "avg_hr", "max_hr", "lat", "lon",
+              "vo2max")

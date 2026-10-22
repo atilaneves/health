@@ -17,7 +17,7 @@ def act(id_: int, start: str, type_: str = "running", name: str = "Running", at=
     # Shape taken from a real get_activities_by_date response (2026-10-22).
     return {"activityId": id_, "activityName": name, "activityType": {"typeKey": type_}, "startTimeLocal": start,
             "distance": 5000.0, "averageSpeed": 2.5, "calories": 400.0, "averageHR": 150.0, "maxHR": 175.0,
-            "startLatitude": at[0], "startLongitude": at[1]}
+            "startLatitude": at[0], "startLongitude": at[1], "vO2MaxValue": 47.0}
 
 
 def entry(start: str, end: str, fetched: str, acts: list[dict]) -> Entry:
@@ -36,6 +36,7 @@ def test_units():
     (row,) = activities.rows([entry("2026-01-01", "2026-01-31", "2026-01-31T12:00:00",
                                     [act(1, "2026-01-05 10:00:00")])])
     assert row[3:7] == (5.0, 9.0, 400.0, 150.0)
+    assert row[10] == 47.0
 
 
 def test_football_is_founex_running_until_its_own_type_then_never_running():

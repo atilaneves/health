@@ -6,6 +6,7 @@ Custom graphs of my Garmin and Tanita data, because the apps' own graphs aren't 
 - **Sports** (its own tab): football and running, each one chart with heart rates, distance and calories (plus average speed for running) overlaid, each measure on its own y-axis.
   - Football used to be recorded as running, nearly always at the Founex pitch. So before 2026-10-22, football is a run that starts within ~500 m of the pitch. From then on it's the Football activity.
   - Running is every run that doesn't start at the pitch.
+  - VO2max: Garmin's estimate, from every activity that has one (outdoor runs), with its trend. Opens on the last year.
 - **Tanita:** fat kg (fat % × Tanita's own weight), visceral fat, muscle mass, muscle quality and fat %.
 
 ## Use
