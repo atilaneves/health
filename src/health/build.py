@@ -17,7 +17,14 @@ body{{margin:0;background:#f9f9f7;color:#0b0b0b;font-family:system-ui,-apple-sys
 main{{max-width:1100px;margin:0 auto;padding:16px}}
 h1{{font-size:22px;margin:8px 0 4px}} h2{{font-size:15px;color:#52514e;font-weight:600;margin:28px 0 8px}}
 .meta{{color:#52514e;font-size:13px;margin-bottom:12px}}
-.card{{background:#fcfcfb;border:1px solid #ebeae6;border-radius:8px;margin:12px 0;overflow:hidden}}
+.grid{{display:grid;gap:12px;margin:12px 0}}
+.card{{background:#fcfcfb;border:1px solid #ebeae6;border-radius:8px;overflow:hidden;min-width:0}}
+/* Wide screens: two charts per row; an odd last chart takes the whole row. */
+@media (min-width:1400px){{
+  main{{max-width:2400px;padding:16px 24px}}
+  .grid{{grid-template-columns:1fr 1fr}}
+  .grid>.card:last-child:nth-child(odd){{grid-column:1/-1}}
+}}
 .toggles{{position:sticky;top:0;z-index:10;background:#f9f9f7;padding:8px 0;display:flex;gap:18px;
   flex-wrap:wrap;font-size:14px;border-bottom:1px solid #ebeae6}}
 .toggles label{{display:flex;align-items:center;gap:6px;cursor:pointer}}
@@ -32,9 +39,9 @@ h1{{font-size:22px;margin:8px 0 4px}} h2{{font-size:15px;color:#52514e;font-weig
 <label><input type="checkbox" data-kind="line"> Line between readings</label>
 <button type="button" id="reset">Reset zoom</button>
 </div>
-<h2>Garmin</h2>{garmin}
-<h2>Tanita</h2>{tanita}
-<h2>Blood pressure</h2>{blood_pressure}
+<h2>Garmin</h2><div class="grid">{garmin}</div>
+<h2>Tanita</h2><div class="grid">{tanita}</div>
+<h2>Blood pressure</h2><div class="grid">{blood_pressure}</div>
 </main>
 <script>
 // Fit each chart's y-axis to the data inside the visible x-range (Plotly only does x).
@@ -57,6 +64,8 @@ function fitY(g) {{
   Plotly.relayout(g, {{"yaxis.range": [lo - pad, hi + pad]}}).then(() => g._fitting = false);
 }}
 const charts = [...document.querySelectorAll(".js-plotly-plot")];
+// Plotly sizes each chart as it is parsed, before the grid has its final layout; size them again now.
+for (const g of charts) Plotly.Plots.resize(g);
 // Reset zoom: every chart back to the view it opened on, with that range button highlighted.
 const initial = new Map(charts.map(g => [g, {{range: [...g.layout.xaxis.range], active: g.layout.updatemenus[0].active}}]));
 document.getElementById("reset").addEventListener("click", () => {{
