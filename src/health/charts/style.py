@@ -67,10 +67,11 @@ def _day(x: date | datetime) -> date:
 def metric(fig: go.Figure, points: list[tuple], name: str, color: str, light: str, dark: str, unit: str,
            fmt: str, line: str = TEAL, trend_days: float = TREND_DAYS,
            hover_time: str = "%a %d %b %Y %H:%M") -> tuple[list[tuple], tuple[float, float]]:
-    """Raw readings as dots, optionally joined by straight lines (hidden at first), plus their 7-day trailing mean as a spline. The average breaks wherever
-    readings are more than 7 days apart (a 7-day average can't span months). Also the Kalman trend,
-    with a ±1σ band where there are readings and a dotted line across gaps. Returns the 7-day means
-    and the trend's slope (per day) at the last reading, with its σ."""
+    """Raw readings as dots, optionally joined by straight lines (hidden at first), plus their 7-day
+    trailing mean as a spline. The average breaks wherever readings are more than 7 days apart (a 7-day
+    average can't span months). Also the Kalman trend, with a ±1σ band where there are readings and a
+    dotted line across gaps. Returns the 7-day means and the trend's slope (per day) at the last
+    reading, with its σ."""
     from health.clean import WINDOW_DAYS, kalman_trend, trailing_mean
 
     means = trailing_mean(points)

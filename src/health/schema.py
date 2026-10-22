@@ -15,6 +15,7 @@ CREATE OR REPLACE TABLE blood_pressure (
 );
 CREATE OR REPLACE TABLE body_comp (
   ts TIMESTAMP PRIMARY KEY,
+  weight_kg DOUBLE,         -- Tanita's own weighing, not Garmin's
   body_fat_pct DOUBLE,
   visceral_fat DOUBLE,      -- Tanita's visceral fat rating, unitless
   muscle_mass_kg DOUBLE,
@@ -24,4 +25,4 @@ CREATE OR REPLACE TABLE body_comp (
 
 WEIGH_INS = ("date", "ts", "weight_kg")
 BLOOD_PRESSURE = ("ts", "systolic", "diastolic", "pulse")
-BODY_COMP = ("ts", "body_fat_pct", "visceral_fat", "muscle_mass_kg", "muscle_quality")
+BODY_COMP = ("ts", "weight_kg", "body_fat_pct", "visceral_fat", "muscle_mass_kg", "muscle_quality")

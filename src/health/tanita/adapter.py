@@ -11,6 +11,7 @@ from datetime import datetime
 from pathlib import Path
 
 COLUMNS = {
+    "weight_kg": "Weight (kg)",
     "body_fat_pct": "Body Fat (%)",
     "visceral_fat": "Visc Fat",
     "muscle_mass_kg": "Muscle Mass (kg)",
