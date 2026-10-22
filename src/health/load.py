@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from health import schema
-from health.garmin import blood_pressure, weight
+from health.garmin import activities, blood_pressure, weight
 from health.garmin.fetch import default_cache
 from health.tanita import adapter as tanita
 from health.tanita.fetch import latest_export
@@ -22,6 +22,7 @@ def load(con, cache=None, tanita_export=None) -> dict[str, int]:
         "weigh_ins": _insert(con, "weigh_ins", schema.WEIGH_INS, weight.rows(cache.entries("weight"))),
         "blood_pressure": _insert(con, "blood_pressure", schema.BLOOD_PRESSURE,
                                   blood_pressure.rows(cache.entries("blood_pressure"))),
+        "activities": _insert(con, "activities", schema.ACTIVITIES, activities.rows(cache.entries("activities"))),
         "body_comp": 0,
     }
     export = tanita_export or latest_export()

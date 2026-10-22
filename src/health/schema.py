@@ -21,8 +21,21 @@ CREATE OR REPLACE TABLE body_comp (
   muscle_mass_kg DOUBLE,
   muscle_quality DOUBLE
 );
+CREATE OR REPLACE TABLE activities (
+  ts TIMESTAMP NOT NULL,    -- start
+  type VARCHAR NOT NULL,    -- Garmin's activity type key, e.g. 'running'
+  name VARCHAR,
+  distance_km DOUBLE,
+  avg_speed_kmh DOUBLE,
+  calories DOUBLE,          -- kcal
+  avg_hr DOUBLE,
+  max_hr DOUBLE,
+  lat DOUBLE,               -- where it started
+  lon DOUBLE
+);
 """
 
 WEIGH_INS = ("date", "ts", "weight_kg")
 BLOOD_PRESSURE = ("ts", "systolic", "diastolic", "pulse")
 BODY_COMP = ("ts", "weight_kg", "body_fat_pct", "visceral_fat", "muscle_mass_kg", "muscle_quality")
+ACTIVITIES = ("ts", "type", "name", "distance_km", "avg_speed_kmh", "calories", "avg_hr", "max_hr", "lat", "lon")

@@ -20,6 +20,7 @@ from health.garmin.cache import Entry, RangeCache
 KINDS = {
     "weight": "get_weigh_ins",
     "blood_pressure": "get_blood_pressure",
+    "activities": "get_activities_by_date",
 }
 HISTORY_START = date(2008, 1, 1)  # before Garmin Connect existed, so "everything"
 

@@ -6,7 +6,9 @@ import html
 from datetime import datetime
 from pathlib import Path
 
-from health.charts import blood_pressure, body, weight
+from plotly.io._utils import plotly_cdn_url
+
+from health.charts import blood_pressure, body, sports, weight
 from health.db import SITE_DIR, connect
 from health.load import load
 
@@ -28,79 +30,145 @@ h1{{font-size:22px;margin:8px 0 4px}} h2{{font-size:15px;color:#52514e;font-weig
 .toggles{{position:sticky;top:0;z-index:10;background:#f9f9f7;padding:8px 0;display:flex;gap:18px;
   flex-wrap:wrap;font-size:14px;border-bottom:1px solid #ebeae6}}
 .toggles label{{display:flex;align-items:center;gap:6px;cursor:pointer}}
+.tabs{{display:flex;gap:4px;margin:8px 0 0}}
+.tabs button{{font:inherit;font-size:14px;color:#52514e;background:none;border:none;border-bottom:2px solid transparent;
+  padding:6px 12px;cursor:pointer}}
+.tabs button[aria-selected=true]{{color:#0b0b0b;font-weight:600;border-bottom-color:#2a78d6}}
+[role=tabpanel][hidden]{{display:none}}
 .toggles button{{margin-left:auto;font:inherit;font-size:13px;color:#52514e;background:#f0efec;
   border:1px solid #ebeae6;border-radius:6px;padding:2px 10px;cursor:pointer}}
 </style></head><body><main>
 <h1>Health</h1><div class="meta">{meta}</div>
-<div class="toggles">
-<label><input type="checkbox" data-kind="readings" checked> Readings</label>
-<label><input type="checkbox" data-kind="avg" checked> 7-day average</label>
-<label><input type="checkbox" data-kind="trend" checked> Trend</label>
-<label><input type="checkbox" data-kind="line"> Line between readings</label>
-<button type="button" id="reset">Reset zoom</button>
+<div class="tabs" role="tablist">
+<button type="button" role="tab" data-tab="health" aria-selected="true">Health</button>
+<button type="button" role="tab" data-tab="sports" aria-selected="false">Sports</button>
 </div>
+<section role="tabpanel" id="tab-health">
+{health_toggles}
 <h2>Garmin</h2><div class="grid">{garmin}</div>
 <h2>Tanita</h2><div class="grid">{tanita}</div>
 <h2>Blood pressure</h2><div class="grid">{blood_pressure}</div>
+</section>
+<section role="tabpanel" id="tab-sports" hidden>
+{sports_toggles}
+<div class="grid">{sports}</div>
+</section>
 </main>
+<script src="{plotly_js}" charset="utf-8"></script>
 <script>
-// Fit each chart's y-axis to the data inside the visible x-range (Plotly only does x).
+// Each chart's figure sits in its card as JSON and is drawn only when its tab is first shown, once,
+// with its y-axes already fitted: drawing every chart (and redrawing it to size and fit it) is slow.
 const t = v => new Date(String(v).replace(" ", "T")).getTime();
-function fitY(g) {{
-  const [x0, x1] = g._fullLayout.xaxis.range.map(t);
-  let lo = Infinity, hi = -Infinity;
-  for (const tr of g._fullData) {{
-    if (!tr.x || !tr.y || tr.yaxis !== "y") continue;
+const hidden = tr => tr.visible === false || tr.visible === "legendonly";
+// The y-ranges ("yaxis", "yaxis2", ...) fitting the data inside x-range [x0, x1] (Plotly only fits x).
+function yRanges(data, [x0, x1]) {{
+  x0 = t(x0); x1 = t(x1);
+  const span = {{}};
+  for (const tr of data) {{
+    if (!tr.x || !tr.y || hidden(tr)) continue;
+    const s = span[tr.yaxis || "y"] ??= [Infinity, -Infinity];
     for (let i = 0; i < tr.x.length; i++) {{
       const y = tr.y[i];
       if (tr.x[i] == null || y == null) continue;
       const x = t(tr.x[i]);
-      if (x >= x0 && x <= x1) {{ lo = Math.min(lo, y); hi = Math.max(hi, y); }}
+      if (x >= x0 && x <= x1) {{ s[0] = Math.min(s[0], y); s[1] = Math.max(s[1], y); }}
     }}
   }}
-  if (lo === Infinity) return;
-  const pad = Math.max((hi - lo) * 0.08, 0.5);
-  g._fitting = true;
-  Plotly.relayout(g, {{"yaxis.range": [lo - pad, hi + pad]}}).then(() => g._fitting = false);
-}}
-const charts = [...document.querySelectorAll(".js-plotly-plot")];
-// Plotly sizes each chart as it is parsed, before the grid has its final layout; size them again now.
-for (const g of charts) Plotly.Plots.resize(g);
-// Reset zoom: every chart back to the view it opened on, with that range button highlighted.
-const initial = new Map(charts.map(g => [g, {{range: [...g.layout.xaxis.range], active: g.layout.updatemenus[0].active}}]));
-document.getElementById("reset").addEventListener("click", () => {{
-  for (const g of charts) {{
-    const v = initial.get(g);
-    Plotly.relayout(g, {{"xaxis.range": [...v.range], "updatemenus[0].active": v.active}});
+  const out = {{}};
+  for (const [axis, [lo, hi]] of Object.entries(span)) {{
+    if (lo === Infinity) continue;
+    const pad = Math.max((hi - lo) * 0.08, 0.5);
+    out["yaxis" + axis.slice(1)] = [lo - pad, hi + pad];
   }}
-}});
-for (const g of charts) {{
-  g.on("plotly_relayout", ev => {{ if (!g._fitting && !("yaxis.range" in ev)) fitY(g); }});
-  fitY(g);
+  return out;
 }}
-// Page-wide toggles: show/hide one kind of line (by trace `meta`) on every chart; remembered locally.
-function setKind(kind, on) {{
-  for (const g of charts) {{
+function fitY(g) {{
+  if (!g._fullLayout.xaxis.range) return;
+  const update = {{}};
+  for (const [axis, r] of Object.entries(yRanges(g.data, g._fullLayout.xaxis.range))) update[axis + ".range"] = r;
+  if (!Object.keys(update).length) return;
+  g._fitting = true;
+  Plotly.relayout(g, update).then(() => g._fitting = false);
+}}
+const kinds = {{}};  // each tab's toggles: tab -> trace `meta` -> shown
+const charts = [];   // drawn so far
+const initial = new Map();  // chart -> the view it opened on, for Reset zoom
+const tabOf = el => el.closest("[role=tabpanel]").id;
+const config = {{displayModeBar: false, responsive: true, scrollZoom: true}};
+function draw(card) {{
+  const fig = JSON.parse(card.querySelector("script").textContent);
+  const shown = kinds[tabOf(card)];
+  for (const tr of fig.data) if (tr.meta in shown) tr.visible = shown[tr.meta] ? true : "legendonly";
+  if (fig.layout.xaxis?.range)
+    for (const [axis, r] of Object.entries(yRanges(fig.data, fig.layout.xaxis.range))) fig.layout[axis].range = r;
+  const g = card.querySelector(".chart");
+  Plotly.newPlot(g, fig.data, fig.layout, config);
+  if (fig.layout.updatemenus) initial.set(g, {{range: [...fig.layout.xaxis.range], active: fig.layout.updatemenus[0].active}});
+  g.on("plotly_relayout", ev => {{ if (!g._fitting && !Object.keys(ev).some(k => k.startsWith("yaxis") && k.endsWith("range"))) fitY(g); }});
+  // Hiding a measure (legend click) refits the axes to what's left.
+  g.on("plotly_restyle", () => {{ if (!g._fitting) fitY(g); }});
+  charts.push(g);
+}}
+// Each tab has its own toggles and Reset zoom, acting on that tab's charts only.
+for (const b of document.querySelectorAll(".reset")) b.addEventListener("click", () => {{
+  for (const [g, v] of initial)
+    if (tabOf(g) === tabOf(b)) Plotly.relayout(g, {{"xaxis.range": [...v.range], "updatemenus[0].active": v.active}});
+}});
+function setKind(tab, kind, on) {{
+  kinds[tab][kind] = on;
+  for (const g of charts.filter(g => tabOf(g) === tab)) {{
     const idx = g.data.map((tr, i) => tr.meta === kind ? i : -1).filter(i => i >= 0);
     if (idx.length) Plotly.restyle(g, {{visible: on ? true : "legendonly"}}, idx);
   }}
 }}
 for (const box of document.querySelectorAll(".toggles input")) {{
-  const key = "health.show." + box.dataset.kind;
+  const tab = tabOf(box), key = `health.show.${{tab}}.${{box.dataset.kind}}`;
   try {{ const v = localStorage.getItem(key); if (v !== null) box.checked = v === "1"; }} catch (e) {{}}
-  setKind(box.dataset.kind, box.checked);
+  (kinds[tab] ??= {{}})[box.dataset.kind] = box.checked;
   box.addEventListener("change", () => {{
-    setKind(box.dataset.kind, box.checked);
+    setKind(tab, box.dataset.kind, box.checked);
     try {{ localStorage.setItem(key, box.checked ? "1" : "0"); }} catch (e) {{}}
   }});
 }}
+// Tabs; the open one is remembered locally. A chart drawn earlier is resized only if the window changed
+// size while its tab was hidden.
+function showTab(name) {{
+  for (const b of document.querySelectorAll("[role=tab]")) b.setAttribute("aria-selected", b.dataset.tab === name);
+  for (const p of document.querySelectorAll("[role=tabpanel]")) p.hidden = p.id !== "tab-" + name;
+  for (const card of document.querySelectorAll("#tab-" + name + " .card")) {{
+    const g = card.querySelector(".chart");
+    if (!g.data) draw(card);
+    else if (g._fullLayout.width !== g.clientWidth) Plotly.Plots.resize(g);
+  }}
+}}
+for (const b of document.querySelectorAll("[role=tab]")) b.addEventListener("click", () => {{
+  showTab(b.dataset.tab);
+  try {{ localStorage.setItem("health.tab", b.dataset.tab); }} catch (e) {{}}
+}});
+let tab = "health";
+try {{ const v = localStorage.getItem("health.tab"); if (v && document.getElementById("tab-" + v)) tab = v; }} catch (e) {{}}
+showTab(tab);
 </script>
 </body></html>"""
 
 
-def _card(fig, first: bool) -> str:
-    return '<div class="card">' + fig.to_html(full_html=False, include_plotlyjs="cdn" if first else False,
-                                               config={"displayModeBar": False, "responsive": True, "scrollZoom": True}) + "</div>"
+# (trace `meta`, label, on at first): the kinds of line a tab's checkboxes toggle.
+KINDS = [("readings", "Readings", True), ("avg", "7-day average", True), ("trend", "Trend", True),
+         ("line", "Line between readings", False)]
+
+
+def _toggles(kinds: list[str]) -> str:
+    """A tab's own checkboxes (one per kind of line its charts have) and Reset zoom button."""
+    boxes = "".join(f'<label><input type="checkbox" data-kind="{k}"{" checked" if on else ""}> {label}</label>'
+                    for k, label, on in KINDS if k in kinds)
+    return f'<div class="toggles">{boxes}<button type="button" class="reset">Reset zoom</button></div>'
+
+
+def _card(fig) -> str:
+    """The figure as JSON, drawn by the page script (see PAGE) when its tab is first shown."""
+    data = fig.to_json().replace("</", "<\\/")  # can't close the script tag early
+    return f'<div class="card"><div class="chart"></div><script type="application/json">{data}</script></div>'
+
 
 
 def render(con=None) -> Path:
@@ -109,10 +177,13 @@ def render(con=None) -> Path:
     tanita_figs = body.figures(con)
     meta = html.escape(f"Built {datetime.now():%Y-%m-%d %H:%M} · "
                        + " · ".join(f"{v} {k.replace('_', ' ')}" for k, v in counts.items()))
-    page = PAGE.format(meta=meta,
-                       garmin=_card(weight.figure(con), True),
-                       tanita="".join(_card(f, False) for f in tanita_figs),
-                       blood_pressure=_card(blood_pressure.figure(con), False))
+    page = PAGE.format(meta=meta, plotly_js=plotly_cdn_url(),
+                       garmin=_card(weight.figure(con)),
+                       tanita="".join(_card(f) for f in tanita_figs),
+                       blood_pressure=_card(blood_pressure.figure(con)),
+                       sports="".join(_card(f) for f in sports.figures(con)),
+                       health_toggles=_toggles(["readings", "avg", "trend", "line"]),
+                       sports_toggles=_toggles(["readings", "trend", "line"]))
     SITE_DIR.mkdir(parents=True, exist_ok=True)
     out = SITE_DIR / "index.html"
     out.write_text(page)

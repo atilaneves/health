@@ -10,6 +10,10 @@ GRID = "#ebeae6"
 BLUE, BLUE_LIGHT, BLUE_DARK = "#2a78d6", "#86b6ef", "#0d366b"   # slot 1; steps 250 and 700
 ORANGE, ORANGE_LIGHT, ORANGE_DARK = "#eb6834", "#f3a785", "#7a2d0f"
 TEAL, PURPLE = "#1a9e86", "#8a5cd6"   # straight lines joining the readings (off by default)
+# Further categorical slots for charts with several series.
+AQUA, YELLOW, VIOLET = "#1baf7a", "#eda100", "#6250d6"
+# Heart rates: max a bright red, average a lighter one.
+RED, RED_LIGHT = "#e5262b", "#ff6b78"
 
 
 def figure(title: str, y_title: str, height: int = 360) -> go.Figure:
@@ -35,8 +39,8 @@ DEFAULT_RANGE = "1M"
 TREND_DAYS = 4  # Kalman trend time scale: how fast the slope may change (see clean.kalman_trend)
 
 
-def time_range(fig: go.Figure, first: date | datetime, last: date | datetime) -> None:
-    """Range buttons anchored on the latest measurement, a range slider, and the initial view (1M)."""
+def time_range(fig: go.Figure, first: date | datetime, last: date | datetime, default: str = DEFAULT_RANGE) -> None:
+    """Range buttons anchored on the latest measurement, a range slider, and the initial view (`default`)."""
     first, last = _day(first), _day(last)
     end = last + timedelta(days=3)
     buttons = []
@@ -45,8 +49,8 @@ def time_range(fig: go.Figure, first: date | datetime, last: date | datetime) ->
         if start > first:
             buttons.append((label, start))
     buttons.append(("All", first - timedelta(days=3)))
-    # Open on the last month, or on everything if there's less than a month of data.
-    active = next((i for i, (label, _) in enumerate(buttons) if label == DEFAULT_RANGE), len(buttons) - 1)
+    # Open on the default range, or on everything if there's less data than that.
+    active = next((i for i, (label, _) in enumerate(buttons) if label == default), len(buttons) - 1)
     fig.update_layout(updatemenus=[dict(
         type="buttons", direction="right", x=0, y=1.0, xanchor="left", yanchor="bottom", pad=dict(t=2, b=4),
         showactive=True, bgcolor="#f0efec", bordercolor=GRID, font=dict(size=11, color=INK_2),
@@ -64,16 +68,23 @@ def _day(x: date | datetime) -> date:
     return x.date() if isinstance(x, datetime) else x
 
 
-def metric(fig: go.Figure, points: list[tuple], name: str, color: str, light: str, dark: str, unit: str,
+def metric(fig: go.Figure, points: list[tuple], name: str, color: str, light: str | None, dark: str, unit: str,
            fmt: str, line: str = TEAL, trend_days: float = TREND_DAYS,
-           hover_time: str = "%a %d %b %Y %H:%M") -> tuple[list[tuple], tuple[float, float]]:
+           hover_time: str = "%a %d %b %Y %H:%M", yaxis: str = "y", avg: bool = True,
+           gap_days: float | None = None, trend_step: int = 1, gl: bool = False) -> tuple[list[tuple], tuple[float, float]]:
     """Raw readings as dots, optionally joined by straight lines (hidden at first), plus their 7-day
     trailing mean as a spline. The average breaks wherever readings are more than 7 days apart (a 7-day
     average can't span months). Also the Kalman trend, with a ±1σ band where there are readings and a
     dotted line across gaps. Returns the 7-day means and the trend's slope (per day) at the last
-    reading, with its σ."""
+    reading, with its σ. `yaxis` puts every trace on another y-axis of a multi-axis chart. `avg=False`
+    leaves out the average, for sparse readings where it's just the reading; `gap_days` is how far apart
+    readings may be before the trend counts the stretch between them as a gap (default 7). `trend_step`
+    draws the trend every that many days rather than daily, for long histories with a slow trend. `gl`
+    draws the readings with WebGL: much quicker for hundreds of them, but they don't show in the range
+    slider."""
     from health.clean import WINDOW_DAYS, kalman_trend, trailing_mean
 
+    n = len(fig.data)
     means = trailing_mean(points)
     lx, ly = [], []
     for i, (t, v) in enumerate(means):
@@ -83,19 +94,25 @@ def metric(fig: go.Figure, points: list[tuple], name: str, color: str, light: st
         lx.append(t)
         ly.append(v)
     # Each kind is its own legend group (one click toggles just it) and carries `meta` so the page's
-    # checkboxes can toggle that kind across every chart. The joining line goes first so the dots sit on
+    # checkboxes can toggle that kind across every chart on its tab. The joining line goes first so the dots sit on
     # top of it, but last in the legend.
     fig.add_scatter(x=[t for t, _ in points], y=[v for _, v in points], mode="lines", name=f"{name}, line",
                     legendgroup=f"{name} line", meta="line", visible="legendonly", legendrank=1001,
                     line=dict(color=line, width=1.5), hoverinfo="skip")
-    fig.add_scatter(x=[t for t, _ in points], y=[v for _, v in points], mode="markers", name=name,
-                    legendgroup=f"{name} readings", meta="readings",
-                    marker=dict(color=color, size=8, line=dict(color=SURFACE, width=2)),
-                    hovertemplate=f"%{{x|{hover_time}}}<br><b>%{{y:{fmt}}} {unit}</b><extra>{name}</extra>")
-    fig.add_scatter(x=lx, y=ly, mode="lines", name=f"{name}, 7-day avg", legendgroup=f"{name} avg", meta="avg",
-                    connectgaps=False, line=dict(color=light, width=2, dash="dash", shape="spline", smoothing=0.6),
-                    hovertemplate=f"%{{x|%d %b %Y}}<br>7-day avg %{{y:{fmt}}} {unit}<extra></extra>")
-    kalman, slope = kalman_trend(points, trend_days)
+    fig.add_trace((go.Scattergl if gl else go.Scatter)(
+        x=[t for t, _ in points], y=[v for _, v in points], mode="markers", name=name,
+        legendgroup=f"{name} readings", meta="readings",
+        marker=dict(color=color, size=8, line=dict(color=SURFACE, width=2)),
+        hovertemplate=f"%{{x|{hover_time}}}<br><b>%{{y:{fmt}}} {unit}</b><extra>{name}</extra>"))
+    if avg:
+        fig.add_scatter(x=lx, y=ly, mode="lines", name=f"{name}, 7-day avg", legendgroup=f"{name} avg",
+                        meta="avg", connectgaps=False,
+                        line=dict(color=light, width=2, dash="dash", shape="spline", smoothing=0.6),
+                        hovertemplate=f"%{{x|%d %b %Y}}<br>7-day avg %{{y:{fmt}}} {unit}<extra></extra>")
+    kalman, slope = kalman_trend(points, trend_days, gap_days or WINDOW_DAYS)
+    if trend_step > 1:  # thin the daily trend, keeping where gaps start and end and the last day
+        kalman = [k for i, k in enumerate(kalman) if not i % trend_step or i + 1 == len(kalman)
+                  or k[3] != kalman[i - 1][3] or k[3] != kalman[i + 1][3]]
     # Measured stretches get the solid line and the band; gaps get a lighter dotted line joining them.
     kx = [t for t, _, _, _ in kalman]
     ky = [None if gap else v for _, v, _, gap in kalman]
@@ -123,6 +140,8 @@ def metric(fig: go.Figure, points: list[tuple], name: str, color: str, light: st
                     line=dict(color=dark, width=3),
                     hovertemplate=f"%{{x|%d %b %Y}}<br>Trend %{{y:{fmt}}} ± %{{customdata:{fmt}}} {unit}"
                                   "<extra></extra>")
+    for tr in fig.data[n:]:
+        tr.yaxis = yaxis
     return means, slope
 
 

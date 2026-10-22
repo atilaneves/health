@@ -2,7 +2,10 @@
 
 Custom graphs of my Garmin and Tanita data, because the apps' own graphs aren't good enough.
 
-- **Garmin:** weight and blood pressure.
+- **Garmin:** weight, blood pressure and activities.
+- **Sports** (its own tab): football and running, each one chart with heart rates, distance and calories (plus average speed for running) overlaid, each measure on its own y-axis.
+  - Football used to be recorded as running, nearly always at the Founex pitch. So before 2026-10-22, football is a run that starts within ~500 m of the pitch. From then on it's the Football activity.
+  - Running is every run that doesn't start at the pitch.
 - **Tanita:** fat kg (fat % × Tanita's own weight), visceral fat, muscle mass, muscle quality and fat %.
 
 ## Use
@@ -30,20 +33,21 @@ The output is `site/index.html`.
 ```
 Garmin Connect ─┐                    ┌─ weigh_ins ──────┐
                 ├─ raw/ (cache) ─ adapters ─┼─ blood_pressure ─┼─ charts ─ site/index.html
-mytanita.eu ────┘                    └─ body_comp ──────┘
+mytanita.eu ────┘                    ├─ activities ─────┤
+                                     └─ body_comp ──────┘
 ```
 
 - **Fetch:** `health.garmin.fetch` and `health.tanita.fetch` store responses verbatim under `raw/`.
   - A fetch made today is reused without touching the network.
   - Garmin only re-fetches uncovered days, plus the last 3 days of older fetches.
-- **Adapters:** `garmin/weight.py`, `garmin/blood_pressure.py` and `tanita/adapter.py` are the only code that knows vendor formats. Each was written against real responses.
+- **Adapters:** `garmin/weight.py`, `garmin/blood_pressure.py`, `garmin/activities.py` and `tanita/adapter.py` are the only code that knows vendor formats. Each was written against real responses.
 - **Tables:** `schema.py` defines the tables, with local wall-clock timestamps. `load.py` rebuilds them from `raw/` on every run.
 - **Charts:** `charts/` reads only those tables. Each metric shows:
   - the readings, optionally joined by straight lines (off by default);
   - a 7-day trailing average, broken across gaps of more than 7 days;
   - a trend: a local linear trend (a level plus a slowly drifting slope) fitted by a Kalman filter and smoother, with a ±1σ band. Across gaps of more than 7 days it becomes a dotted curve that never overshoots the trend at either end. The subtitle gives its current slope per week.
 
-  The page opens on the last month. It has range buttons, x-zoom with an auto-fitted y-axis, page-wide toggles and a Reset zoom button.
+  The page has Health and Sports tabs. Health charts open on the last month, sports charts on the last 3. It has range buttons, x-zoom with an auto-fitted y-axis, and on each tab its own toggles and Reset zoom button.
 
 ## Logins
 
