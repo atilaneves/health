@@ -2,7 +2,7 @@ from datetime import date, datetime, timedelta
 
 import pytest
 
-from health.clean import kalman_trend, trailing_mean
+from health.clean import bursts, kalman_trend, trailing_mean
 
 D = date.fromisoformat
 
@@ -55,3 +55,10 @@ def test_kalman_gap_curve_passes_by_a_lone_reading():
     pts += [(D("2026-03-01") + timedelta(days=i), 70.0) for i in range(5)]
     out = {t.date(): v for t, v, _, _ in kalman_trend(pts, 4)[0]}
     assert out[D("2026-02-01")] > 72.0
+
+
+def test_bursts_split_on_gaps():
+    pts = [(D("2026-05-14"), 3.0), (D("2026-05-03"), 1.0), (D("2026-05-09"), 2.0), (D("2026-10-16"), 4.0)]
+    assert bursts(pts, 7) == [[(D("2026-05-03"), 1.0), (D("2026-05-09"), 2.0), (D("2026-05-14"), 3.0)],
+                              [(D("2026-10-16"), 4.0)]]
+    assert bursts([], 7) == []

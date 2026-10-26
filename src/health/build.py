@@ -21,6 +21,9 @@ h1{{font-size:22px;margin:8px 0 4px}} h2{{font-size:15px;color:#52514e;font-weig
 .meta{{color:#52514e;font-size:13px;margin-bottom:12px}}
 .grid{{display:grid;gap:12px;margin:12px 0}}
 .card{{background:#fcfcfb;border:1px solid #ebeae6;border-radius:8px;overflow:hidden;min-width:0}}
+.card header{{display:flex;flex-wrap:wrap;align-items:baseline;column-gap:12px;row-gap:2px;padding:12px 16px 0}}
+.card h3{{font-size:16px;font-weight:600;margin:0}}
+.card header span{{font-size:12px;color:#52514e}}
 /* Wide screens: two charts per row; an odd last chart takes the whole row. */
 @media (min-width:1400px){{
   main{{max-width:2400px;padding:16px 24px}}
@@ -68,10 +71,10 @@ function yRanges(data, [x0, x1]) {{
     if (!tr.x || !tr.y || hidden(tr)) continue;
     const s = span[tr.yaxis || "y"] ??= [Infinity, -Infinity];
     for (let i = 0; i < tr.x.length; i++) {{
-      const y = tr.y[i];
+      const y = tr.y[i], e = tr.error_y?.array?.[i] ?? 0;
       if (tr.x[i] == null || y == null) continue;
       const x = t(tr.x[i]);
-      if (x >= x0 && x <= x1) {{ s[0] = Math.min(s[0], y); s[1] = Math.max(s[1], y); }}
+      if (x >= x0 && x <= x1) {{ s[0] = Math.min(s[0], y - e); s[1] = Math.max(s[1], y + e); }}
     }}
   }}
   const out = {{}};
@@ -153,7 +156,7 @@ showTab(tab);
 
 
 # (trace `meta`, label, on at first): the kinds of line a tab's checkboxes toggle.
-KINDS = [("readings", "Readings", True), ("avg", "7-day average", True), ("trend", "Trend", True),
+KINDS = [("readings", "Readings", True), ("avg", "Average", True), ("trend", "Trend", True),
          ("line", "Line between readings", False)]
 
 
@@ -167,7 +170,11 @@ def _toggles(kinds: list[str]) -> str:
 def _card(fig) -> str:
     """The figure as JSON, drawn by the page script (see PAGE) when its tab is first shown."""
     data = fig.to_json().replace("</", "<\\/")  # can't close the script tag early
-    return f'<div class="card"><div class="chart"></div><script type="application/json">{data}</script></div>'
+    head = f'<h3>{html.escape(fig.layout.meta["title"])}</h3>'
+    if fig.layout.meta["subtitle"]:
+        head += f'<span>{html.escape(fig.layout.meta["subtitle"])}</span>'
+    return (f'<div class="card"><header>{head}</header><div class="chart"></div>'
+            f'<script type="application/json">{data}</script></div>')
 
 
 

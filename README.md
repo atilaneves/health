@@ -3,10 +3,9 @@
 Custom graphs of my Garmin and Tanita data, because the apps' own graphs aren't good enough.
 
 - **Garmin:** weight, blood pressure and activities.
-- **Sports** (its own tab): football and running, each one chart with heart rates, distance and calories (plus average speed for running) overlaid, each measure on its own y-axis.
+- **Sports** (its own tab): football, as one chart of heart rates (average and max) and one of distance and calories, each on its own y-axis.
   - Football used to be recorded as running, nearly always at the Founex pitch. So before 2026-10-22, football is a run that starts within ~500 m of the pitch. From then on it's the Football activity.
-  - Running is every run that doesn't start at the pitch.
-  - VO2max: Garmin's estimate, from every activity that has one (outdoor runs), with its trend. Opens on the last year.
+  - VO2max: Garmin's estimate, from every activity that has one (outdoor runs), as a step line of the value Garmin held on each date. Garmin already smooths and rounds it, so there's no trend of our own. Opens on the last year.
 - **Tanita:** fat kg (fat % × Tanita's own weight), visceral fat, muscle mass, muscle quality and fat %.
 
 ## Use
@@ -46,7 +45,9 @@ mytanita.eu ────┘                    ├─ activities ─────
 - **Charts:** `charts/` reads only those tables. Each metric shows:
   - the readings, optionally joined by straight lines (off by default);
   - a 7-day trailing average, broken across gaps of more than 7 days;
-  - a trend: a local linear trend (a level plus a slowly drifting slope) fitted by a Kalman filter and smoother, with a ±1σ band. Across gaps of more than 7 days it becomes a dotted curve that never overshoots the trend at either end. The subtitle gives its current slope per week.
+  - a trend: a local linear trend (a level plus a slowly drifting slope) fitted by a Kalman filter and smoother, with a ±1σ band. Across gaps of more than 7 days it becomes a dotted curve that never overshoots the trend at either end. The subtitle gives its current slope per week. Its time scale (4 days) is the maximum-likelihood fit to the Tanita readings for weight and muscle mass, and within noise of it for the other Tanita measures.
+
+  Blood pressure is the exception. Its readings come in bursts of a few days, months apart, so instead of an average and a trend each burst (readings at most 7 days apart) is one average with a ±1 standard error bar, as in home-monitoring guidelines, against the ESH home thresholds (135/85).
 
   The page has Health and Sports tabs. Health charts open on the last month, sports charts on the last 3. It has range buttons, x-zoom with an auto-fitted y-axis, and on each tab its own toggles and Reset zoom button.
 

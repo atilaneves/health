@@ -1,17 +1,18 @@
-"""Garmin activities: football and running, each one chart with several measures overlaid, every
-measure on its own y-axis (heart rates share one).
+"""Garmin activities: football, as two charts (heart rates; distance and calories, each on its own
+y-axis).
 
 Football was recorded as running until FOOTBALL_SINCE, and nearly always at the Founex pitch, so a
-run that starts there is football before that date. From then on football is its own activity type;
-a run at the pitch is never counted as running either way.
+run that starts there is football before that date. From then on football is its own activity type.
 
 VO2max is its own chart: it's Garmin's estimate of fitness, not a measure of one sport, so it takes
-every activity that has one (in practice outdoor runs, football at the pitch included).
+every activity that has one (in practice outdoor runs, football at the pitch included). Garmin already
+smooths it and rounds it to a whole number, so it's drawn as the value Garmin held on each date, with
+no trend of our own on top.
 """
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, timedelta
 
 import plotly.graph_objects as go
 
@@ -29,30 +30,22 @@ GAP_DAYS = 21
 TREND_STEP = 7  # a month-scale trend over ten years: weekly points are plenty, and far quicker to draw
 DEFAULT_RANGE = "3M"
 VO2MAX_RANGE = "1Y"  # a whole number that moves a point every few months: 3 months is a flat line
+VO2MAX_CHANGE_DAYS = 365
 
 AT_PITCH = f"abs(lat - {PITCH_LAT}) < {PITCH_DEG} AND abs(lon - {PITCH_LON}) < {PITCH_DEG}"
 FOOTBALL = (f"(type = 'running' AND {AT_PITCH} AND ts < DATE '{FOOTBALL_SINCE}') OR "
             f"((type IN {FOOTBALL_TYPES} OR lower(name) LIKE '%football%') AND ts >= DATE '{FOOTBALL_SINCE}')")
-RUNNING = f"type = 'running' AND NOT coalesce({AT_PITCH}, false)"
 
-# (column, name, unit, format, axis, colour of the readings and their trend)
-HR_AVG = ("avg_hr", "Avg heart rate", "bpm", ".0f", "y", style.RED_LIGHT)
-HR_MAX = ("max_hr", "Max heart rate", "bpm", ".0f", "y", style.RED)
-DISTANCE = ("distance_km", "Distance", "km", ".2f", "y2", style.AQUA)
-CALORIES = ("calories", "Calories", "kcal", ".0f", "y3", style.YELLOW)
-SPEED = ("avg_speed_kmh", "Avg speed", "km/h", ".1f", "y4", style.VIOLET)
-
-AXES = {  # axis -> (title, side, tick format)
-    "y": ("Heart rate (bpm)", "left", ".0f"),
-    "y2": ("Distance (km)", "right", ".1f"),
-    "y3": ("Calories (kcal)", "right", ".0f"),
-    "y4": ("Speed (km/h)", "left", ".1f"),
-}
+# (column, name, unit, format, colour of the readings and their trend, axis title, axis tick format)
+HR_AVG = ("avg_hr", "Avg heart rate", "bpm", ".0f", style.RED_LIGHT, "Heart rate (bpm)", ".0f")
+HR_MAX = ("max_hr", "Max heart rate", "bpm", ".0f", style.RED, "Heart rate (bpm)", ".0f")
+DISTANCE = ("distance_km", "Distance", "km", ".2f", style.AQUA, "Distance (km)", ".1f")
+CALORIES = ("calories", "Calories", "kcal", ".0f", style.YELLOW, "Calories (kcal)", ".0f")
 
 
 def figures(con) -> list[go.Figure]:
-    return [_figure(con, "Football", FOOTBALL, [HR_AVG, HR_MAX, DISTANCE, CALORIES]),
-            _figure(con, "Running", RUNNING, [DISTANCE, SPEED, HR_AVG, HR_MAX, CALORIES]),
+    return [_figure(con, "Football: heart rate", FOOTBALL, [(HR_AVG, "y"), (HR_MAX, "y")]),
+            _figure(con, "Football: distance and calories", FOOTBALL, [(DISTANCE, "y"), (CALORIES, "y2")]),
             _vo2max(con)]
 
 
@@ -62,19 +55,28 @@ def _vo2max(con) -> go.Figure:
     if not pts:
         style.subtitle(fig, "no estimates yet")
         return fig
-    _, slope = style.metric(fig, pts, "VO2max", style.BLUE, None, style.BLUE_DARK, "ml/kg/min", ".0f",
-                            trend_days=TREND_DAYS, avg=False, gap_days=GAP_DAYS, trend_step=TREND_STEP)
+    # No `meta`: the step line is the measure itself, so the tab's checkboxes leave it alone.
+    fig.add_scatter(x=[t for t, _ in pts], y=[v for _, v in pts], mode="lines", name="VO2max", hoverinfo="skip",
+                    line=dict(color=style.BLUE_DARK, width=2.5, shape="hv"))
+    fig.add_scatter(x=[t for t, _ in pts], y=[v for _, v in pts], mode="markers", name="VO2max, estimates",
+                    meta="readings", marker=dict(color=style.BLUE, size=6, line=dict(color=style.SURFACE, width=1)),
+                    hovertemplate="%{x|%a %d %b %Y}<br><b>%{y:.0f} ml/kg/min</b><extra>VO2max</extra>")
     style.legend(fig)
-    style.subtitle(fig, f"latest {pts[-1][1]:.0f} ml/kg/min · " + style.slope_text(slope, "ml/kg/min", ".2f"))
+    text = f"latest {pts[-1][1]:.0f} ml/kg/min"
+    then = [v for t, v in pts if t <= pts[-1][0] - timedelta(days=VO2MAX_CHANGE_DAYS)]
+    if then:
+        text += f" · {pts[-1][1] - then[-1]:+.0f} over the last year"
+    style.subtitle(fig, text)
     style.time_range(fig, pts[0][0], pts[-1][0], VO2MAX_RANGE)
     return fig
 
 
-def _figure(con, title: str, where: str, measures: list[tuple]) -> go.Figure:
-    fig = style.figure(title, AXES["y"][0], height=440)
+def _figure(con, title: str, where: str, measures: list[tuple[tuple, str]]) -> go.Figure:
+    """`measures` are (measure, axis): "y" on the left, "y2" on the right."""
+    fig = style.figure(title, measures[0][0][5], height=400)
     first = last = None
     latest = []
-    for col, name, unit, fmt, axis, color in measures:
+    for (col, name, unit, fmt, color, axis_title, tickformat), axis in measures:
         pts = con.execute(f"SELECT ts, {col} FROM activities WHERE ({where}) AND {col} IS NOT NULL "
                           "ORDER BY ts").fetchall()
         if not pts:
@@ -82,26 +84,23 @@ def _figure(con, title: str, where: str, measures: list[tuple]) -> go.Figure:
         n = len(fig.data)
         style.metric(fig, pts, name, color, None, color, unit, fmt, line=color, trend_days=TREND_DAYS, yaxis=axis,
                      avg=False, gap_days=GAP_DAYS, trend_step=TREND_STEP, gl=True)
-        # With this many measures, one legend entry per measure, toggling all of its lines; its tab's
-        # checkboxes still toggle each kind of line.
+        # One legend entry per measure, toggling all of its lines; the tab's checkboxes still toggle
+        # each kind of line.
         for tr in fig.data[n:]:
             tr.update(legendgroup=name, showlegend=tr.meta == "readings")
+        if axis == "y":
+            fig.update_yaxes(tickformat=tickformat)
+        else:
+            fig.update_layout(yaxis2=dict(
+                title_text=axis_title, tickformat=tickformat, overlaying="y", side="right", showgrid=False,
+                zeroline=False, linecolor=style.GRID, fixedrange=True))
+            fig.update_layout(margin=dict(r=72))
         first = min(first or pts[0][0], pts[0][0])
         last = max(last or pts[-1][0], pts[-1][0])
-        latest.append(f"{pts[-1][1]:{fmt}} {unit}")
+        latest.append(f"{name.lower()} {pts[-1][1]:{fmt}} {unit}")
     if first is None:
         style.subtitle(fig, "no activities yet")
         return fig
-    used = {tr.yaxis for tr in fig.data}
-    # Extra axes sit outside the plot, shifted clear of each other (autoshift).
-    for axis in ("y2", "y3", "y4"):
-        if axis not in used:
-            continue
-        text, side, tickformat = AXES[axis]
-        fig.update_layout({f"yaxis{axis[1:]}": dict(
-            title_text=text, tickformat=tickformat, overlaying="y", side=side, anchor="free", autoshift=True, shift=0 if side == "right"
-            else -8, gridcolor=style.GRID, showgrid=False, zeroline=False, linecolor=style.GRID, fixedrange=True)})
-    fig.update_layout(margin=dict(l=56 + 64 * ("y4" in used), r=24 + 64 * len(used & {"y2", "y3"})))
     style.legend(fig)
     style.subtitle(fig, "latest " + " · ".join(latest))
     style.time_range(fig, first, last, DEFAULT_RANGE)

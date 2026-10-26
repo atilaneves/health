@@ -39,7 +39,7 @@ def test_units():
     assert row[10] == 47.0
 
 
-def test_football_is_founex_running_until_its_own_type_then_never_running():
+def test_football_is_founex_running_until_its_own_type():
     con = duckdb.connect()
     con.execute(schema.SCHEMA)
     acts = [act(1, "2026-10-01 19:00:00", at=FOUNEX),            # football, recorded as running
@@ -51,4 +51,3 @@ def test_football_is_founex_running_until_its_own_type_then_never_running():
             activities.rows([entry("2026-10-01", "2026-10-31", "2026-10-31T12:00:00", acts)]))
     q = "SELECT ts::DATE FROM activities WHERE {} ORDER BY ts"
     assert [r[0] for r in con.execute(q.format(sports.FOOTBALL)).fetchall()] == [D("2026-10-01"), D("2026-10-29")]
-    assert [r[0] for r in con.execute(q.format(sports.RUNNING)).fetchall()] == [D("2026-10-02"), D("2026-10-31")]

@@ -16,6 +16,7 @@ COLUMNS = {
     "visceral_fat": "Visc Fat",
     "muscle_mass_kg": "Muscle Mass (kg)",
     "muscle_quality": "Muscle Quality",
+    "body_water_pct": "Body Water (%)",
 }
 DATE_COLUMN = "Date"
 

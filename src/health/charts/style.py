@@ -18,12 +18,12 @@ RED, RED_LIGHT = "#e5262b", "#ff6b78"
 
 def figure(title: str, y_title: str, height: int = 360) -> go.Figure:
     fig = go.Figure()
+    # The title and subtitle are drawn by the page as HTML above the chart (build._card), where long
+    # ones wrap on narrow screens; a Plotly title can't.
     fig.update_layout(
-        title=dict(text=title, x=0, xanchor="left", xref="container", y=1, yanchor="top", yref="container",
-                   pad=dict(t=14, l=16), font=dict(size=16, color=INK)),
-        height=height, paper_bgcolor=SURFACE, plot_bgcolor=SURFACE,
+        meta=dict(title=title, subtitle=""), height=height, paper_bgcolor=SURFACE, plot_bgcolor=SURFACE,
         font=dict(family="system-ui, -apple-system, Segoe UI, sans-serif", size=12, color=INK_2),
-        margin=dict(l=56, r=24, t=56, b=40), hovermode="closest", showlegend=False,
+        margin=dict(l=56, r=24, t=24, b=40), hovermode="closest", showlegend=False,
         hoverlabel=dict(bgcolor="white", bordercolor=GRID, font=dict(color=INK)),
     )
     fig.update_xaxes(showgrid=False, linecolor=GRID, ticks="outside", tickcolor=GRID)
@@ -36,7 +36,11 @@ def figure(title: str, y_title: str, height: int = 360) -> go.Figure:
 # (label, days back from the latest measurement); "YTD" and "All" are handled specially.
 RANGES = [("1W", 7), ("1M", 31), ("3M", 92), ("6M", 183), ("YTD", None), ("1Y", 365), ("2Y", 730), ("5Y", 1826)]
 DEFAULT_RANGE = "1M"
-TREND_DAYS = 4  # Kalman trend time scale: how fast the slope may change (see clean.kalman_trend)
+# Kalman trend time scale: how fast the slope may change (see clean.kalman_trend). Checked against the
+# Tanita readings (38, 2026-07-15 .. 2026-10-26) by maximum likelihood: weight and muscle mass fit best
+# at 4, fat kg and fat % at 5 (4 within 0.2 log-likelihood), visceral fat anywhere from 4 to 8. Muscle
+# quality's likelihood prefers 2, but 4 predicts each next reading slightly better, so it keeps 4 too.
+TREND_DAYS = 4
 
 
 def time_range(fig: go.Figure, first: date | datetime, last: date | datetime, default: str = DEFAULT_RANGE) -> None:
@@ -59,8 +63,8 @@ def time_range(fig: go.Figure, first: date | datetime, last: date | datetime, de
                  for label, start in buttons])])
     fig.update_xaxes(range=[buttons[active][1].isoformat(), end.isoformat()],
                      rangeslider=dict(visible=True, thickness=0.08, bgcolor="#f3f2ee", bordercolor=GRID))
-    # Header rows: title at the very top, legend under it, range buttons just above the plot.
-    fig.update_layout(height=fig.layout.height + 72, margin=dict(t=112))
+    # Header rows: legend at the very top, range buttons just above the plot.
+    fig.update_layout(height=fig.layout.height + 52, margin=dict(t=76))
     _place_legend(fig)
 
 
@@ -157,7 +161,7 @@ def slope_text(slope: tuple[float, float], unit: str, fmt: str) -> str:
 
 
 def legend(fig: go.Figure) -> None:
-    """Legend on its own row under the title (rows: title, legend, range buttons, plot)."""
+    """Legend on its own row above the range buttons (rows: legend, range buttons, plot)."""
     fig.update_layout(showlegend=True, legend=dict(orientation="h", x=0, xanchor="left", xref="container",
                                                    y=1, yanchor="top", yref="container", font=dict(color=INK_2),
                                                    bgcolor="rgba(0,0,0,0)", indentation=10))
@@ -165,11 +169,10 @@ def legend(fig: go.Figure) -> None:
 
 
 def _place_legend(fig: go.Figure) -> None:
-    # Container-relative y must be recomputed whenever the height changes: 44px below the top.
+    # Container-relative y must be recomputed whenever the height changes: 8px below the top.
     if fig.layout.showlegend and fig.layout.height:
-        fig.update_layout(legend_y=1 - 44 / fig.layout.height)
+        fig.update_layout(legend_y=1 - 8 / fig.layout.height)
 
 
 def subtitle(fig: go.Figure, text: str) -> None:
-    fig.update_layout(title_text=f"{fig.layout.title.text}<span style='font-size:12px;color:{INK_2}'>"
-                                 f"&nbsp;&nbsp;{text}</span>")
+    fig.update_layout(meta=dict(title=fig.layout.meta["title"], subtitle=text))

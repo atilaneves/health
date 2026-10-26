@@ -28,6 +28,16 @@ def trailing_mean(points: list[tuple[date | datetime, float]], days: int = WINDO
     return out
 
 
+def bursts(points: list[tuple], gap_days: float) -> list[list[tuple]]:
+    """Readings (time first) split wherever two in a row are more than `gap_days` apart, in time order."""
+    out = []
+    for p in sorted(points, key=lambda p: _at(p[0])):
+        if not out or (_at(p[0]) - _at(out[-1][-1][0])).total_seconds() > gap_days * 86400:
+            out.append([])
+        out[-1].append(p)
+    return out
+
+
 def kalman_trend(points: list[tuple[date | datetime, float]], smoothness_days: float,
                  max_gap_days: float = WINDOW_DAYS) -> tuple[list[tuple[datetime, float, float, bool]],
                                                              tuple[float, float]]:

@@ -19,7 +19,8 @@ CREATE OR REPLACE TABLE body_comp (
   body_fat_pct DOUBLE,
   visceral_fat DOUBLE,      -- Tanita's visceral fat rating, unitless
   muscle_mass_kg DOUBLE,
-  muscle_quality DOUBLE
+  muscle_quality DOUBLE,
+  body_water_pct DOUBLE
 );
 CREATE OR REPLACE TABLE activities (
   ts TIMESTAMP NOT NULL,    -- start
@@ -38,6 +39,7 @@ CREATE OR REPLACE TABLE activities (
 
 WEIGH_INS = ("date", "ts", "weight_kg")
 BLOOD_PRESSURE = ("ts", "systolic", "diastolic", "pulse")
-BODY_COMP = ("ts", "weight_kg", "body_fat_pct", "visceral_fat", "muscle_mass_kg", "muscle_quality")
+BODY_COMP = ("ts", "weight_kg", "body_fat_pct", "visceral_fat", "muscle_mass_kg", "muscle_quality",
+             "body_water_pct")
 ACTIVITIES = ("ts", "type", "name", "distance_km", "avg_speed_kmh", "calories", "avg_hr", "max_hr", "lat", "lon",
               "vo2max")
