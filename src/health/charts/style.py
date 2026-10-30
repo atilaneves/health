@@ -75,12 +75,13 @@ def _day(x: date | datetime) -> date:
 def metric(fig: go.Figure, points: list[tuple], name: str, color: str, light: str | None, dark: str, unit: str,
            fmt: str, line: str = TEAL, trend_days: float = TREND_DAYS,
            hover_time: str = "%a %d %b %Y %H:%M", yaxis: str = "y", avg: bool = True,
-           gap_days: float | None = None, trend_step: int = 1, gl: bool = False) -> tuple[list[tuple], tuple[float, float]]:
+           gap_days: float | None = None, trend_step: int = 1,
+           gl: bool = False) -> tuple[list[tuple], float, tuple[float, float]]:
     """Raw readings as dots, optionally joined by straight lines (hidden at first), plus their 7-day
     trailing mean as a spline. The average breaks wherever readings are more than 7 days apart (a 7-day
     average can't span months). Also the Kalman trend, with a ±1σ band where there are readings and a
-    dotted line across gaps. Returns the 7-day means and the trend's slope (per day) at the last
-    reading, with its σ. `yaxis` puts every trace on another y-axis of a multi-axis chart. `avg=False`
+    dotted line across gaps. Returns the 7-day means, the trend's level at the last reading, and its
+    slope (per day) there, with its σ. `yaxis` puts every trace on another y-axis of a multi-axis chart. `avg=False`
     leaves out the average, for sparse readings where it's just the reading; `gap_days` is how far apart
     readings may be before the trend counts the stretch between them as a gap (default 7). `trend_step`
     draws the trend every that many days rather than daily, for long histories with a slow trend. `gl`
@@ -146,7 +147,7 @@ def metric(fig: go.Figure, points: list[tuple], name: str, color: str, light: st
                                   "<extra></extra>")
     for tr in fig.data[n:]:
         tr.yaxis = yaxis
-    return means, slope
+    return means, kalman[-1][1], slope
 
 
 def _rgba(hex_color: str, alpha: float) -> str:
@@ -154,10 +155,10 @@ def _rgba(hex_color: str, alpha: float) -> str:
     return f"rgba({r},{g},{b},{alpha})"
 
 
-def slope_text(slope: tuple[float, float], unit: str, fmt: str) -> str:
-    """The trend's slope per week, with its σ, for a subtitle."""
+def trend_text(level: float, slope: tuple[float, float], unit: str, fmt: str, slope_fmt: str) -> str:
+    """The trend's level, and its slope per week with its σ, for a subtitle."""
     b, sd = slope[0] * 7, slope[1] * 7
-    return f"trend {b:+{fmt}} ± {sd:{fmt}} {unit}/wk"
+    return f"trend {level:{fmt}} {unit} ({b:+{slope_fmt}} ± {sd:{slope_fmt}} {unit}/wk)"
 
 
 def legend(fig: go.Figure) -> None:

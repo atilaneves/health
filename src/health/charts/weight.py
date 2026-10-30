@@ -12,10 +12,10 @@ def figure(con) -> go.Figure:
     fig = style.figure("Weight", "kg")
     if not pts:
         return fig
-    means, slope = style.metric(fig, pts, "Weight", style.BLUE, style.BLUE_LIGHT, style.BLUE_DARK, "kg", ".1f",
-                                hover_time="%a %d %b %Y")
+    means, level, slope = style.metric(fig, pts, "Weight", style.BLUE, style.BLUE_LIGHT, style.BLUE_DARK, "kg", ".1f",
+                                       hover_time="%a %d %b %Y")
     style.legend(fig)
     style.subtitle(fig, f"latest {pts[-1][1]:.1f} kg · 7-day avg {means[-1][1]:.1f} kg · "
-                        + style.slope_text(slope, "kg", ".2f"))
+                        + style.trend_text(level, slope, "kg", ".1f", ".2f"))
     style.time_range(fig, pts[0][0], pts[-1][0])
     return fig
