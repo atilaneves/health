@@ -23,14 +23,21 @@ from health.charts import style
 VAT_BAND_CM = 10
 KG_PER_RATING = 10 * VAT_BAND_CM * 0.94 / 1000   # 10 cm² × band height → cm³ → kg
 VAT_RATING = f"visceral_fat_kg / {KG_PER_RATING}"
-# The converted rating's ±1σ: CoreScan vs CT, 95% limits of agreement ≈ ±410 cm³ (Kaul 2012), so σ ≈ 210 cm³
-# (2.1 points); and ±1 cm of band height, ±10% of the rating. Added in quadrature.
-VAT_SD_RATING = 210 / (10 * VAT_BAND_CM)
-VAT_BAND_SD = 1 / VAT_BAND_CM
+# The converted rating's ±1σ, as (total, scan, conversion), combined in quadrature:
+# - scan: repeatability, 44 g RMS SD between repeat iDXA CoreScan scans (Mellis et al. 2014, overweight
+#   group, mean VAT 806 g; the nearest to these scans). Matters scan to scan.
+# - conversion, systematic (moves every scan together): ±1 cm of band height (±10%), and the level
+#   mismatch: Tanita's reference slice is presumably the umbilicus (~L4–L5, the Japanese standard), the band
+#   averages ~L3–L5; adjacent levels differ by ~10% (umbilicus 106 vs L5 95 cm², PMC11200797), so ±15%
+#   (a judgement). The 0.94 g/cm³ is CoreScan's own constant, so undoing it adds nothing.
+VAT_SCAN_SD = 44 / 0.94 / (10 * VAT_BAND_CM)
+VAT_CONVERSION_SD = (0.10 ** 2 + 0.15 ** 2) ** 0.5
 
 
-def _vat_sd(rating: float) -> float:
-    return (VAT_SD_RATING ** 2 + (VAT_BAND_SD * rating) ** 2) ** 0.5
+def _vat_sd(rating: float) -> tuple[float, float, float]:
+    conv = VAT_CONVERSION_SD * rating
+    return (VAT_SCAN_SD ** 2 + conv ** 2) ** 0.5, VAT_SCAN_SD, conv
+
 
 MEASURES = [
     ("body_fat_pct * weight_kg / 100", "Fat kg", "kg", ".1f", ("fat_kg", "DEXA fat")),
@@ -68,16 +75,21 @@ def figures(con) -> list[go.Figure]:
     return out
 
 
-def _dexa(fig: go.Figure, scans: list[tuple], name: str, unit: str, fmt: str, sd: list[float] | None) -> None:
-    """DEXA scans as red diamonds, with ±1σ error bars when `sd` is given."""
+def _dexa(fig: go.Figure, scans: list[tuple], name: str, unit: str, fmt: str,
+          sd: list[tuple[float, float, float]] | None) -> None:
+    """DEXA scans as red diamonds; with `sd` (total, scan, conversion), ±1σ error bars of the total."""
+    hover = f"%{{x|%d %b %Y}}<br><b>%{{y:{fmt}}}"
+    if sd:
+        hover += (f" ± %{{customdata[0]:{fmt}}} {unit}</b><br>scan ± %{{customdata[1]:{fmt}}}, "
+                  f"conversion ± %{{customdata[2]:{fmt}}}")
+    else:
+        hover += f" {unit}</b>"
     fig.add_scatter(x=[t for t, _ in scans], y=[v for _, v in scans], mode="markers", name=name,
                     legendgroup="dexa", meta="dexa",
                     marker=dict(color=style.RED, size=11, symbol="diamond", line=dict(color=style.SURFACE, width=1.5)),
-                    error_y=dict(type="data", array=sd, color=style.RED, thickness=1.5, width=6) if sd else None,
-                    customdata=sd,
-                    hovertemplate=f"%{{x|%d %b %Y}}<br><b>%{{y:{fmt}}}"
-                                  + (f" ± %{{customdata:{fmt}}}" if sd else "")
-                                  + f" {unit}</b><extra>{name}</extra>")
+                    error_y=dict(type="data", array=[d[0] for d in sd], color=style.RED, thickness=1.5, width=6)
+                    if sd else None,
+                    customdata=sd, hovertemplate=hover + f"<extra>{name}</extra>")
 
 
 def _kg_axis(fig: go.Figure) -> None:
