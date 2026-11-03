@@ -1,6 +1,6 @@
-"""Tanita body composition: one chart per measure, readings on a spline plus the 7-day average. Fat kg
-comes from Tanita's own weighing (not Garmin's). Where a DEXA scan measures the same thing, its scans are
-overlaid in red."""
+"""Body: one chart per measure, whatever the source. Each has a main series (readings, 7-day average and
+trend); where a DEXA scan measures the same thing, its scans are overlaid as red diamonds. Weight is
+Garmin's; the rest are Tanita's, and Fat kg comes from Tanita's own weighing (not Garmin's)."""
 
 from __future__ import annotations
 
@@ -49,30 +49,51 @@ MEASURES = [
 
 
 def figures(con) -> list[go.Figure]:
-    out = []
-    for expr, title, unit, fmt, dexa in MEASURES:
-        rows = con.execute(f"SELECT ts, {expr} AS v FROM body_comp WHERE v IS NOT NULL ORDER BY ts").fetchall()
-        scans = []
-        if dexa:  # noon, so a scan sits in the middle of its day
-            scans = [(datetime.combine(d, time(12)), v) for d, v in con.execute(
-                f"SELECT date, {dexa[0]} FROM dexa WHERE {dexa[0]} IS NOT NULL ORDER BY date").fetchall()]
-        fig = style.figure(title, unit, height=300)
-        if rows:
-            means, level, slope = style.metric(fig, rows, title, style.BLUE, style.BLUE_LIGHT, style.BLUE_DARK,
-                                               unit, fmt)
-            text = (f"latest {rows[-1][1]:{fmt}} {unit} · 7-day avg {means[-1][1]:{fmt}} {unit} · "
-                    + style.trend_text(level, slope, unit, fmt, ".2f"))
-            if scans:
-                _dexa(fig, scans, dexa[1], unit, fmt,
-                      [_vat_sd(v) for _, v in scans] if title == "Visceral fat" else None)
-                text += f" · last DEXA {scans[-1][1]:{fmt}} {unit} ({scans[-1][0]:%d %b %Y})"
-            style.legend(fig)
-            style.subtitle(fig, text)
-            style.time_range(fig, min([rows[0][0], *(t for t, _ in scans)]), rows[-1][0])
-            if title == "Visceral fat":
-                _kg_axis(fig)
-        out.append(fig)
+    """Fat kg, visceral fat, muscle mass, weight, muscle quality, fat %."""
+    out = [_measure(con, *m) for m in MEASURES]
+    out.insert(3, _weight(con))
     return out
+
+
+def _scans(con, expr: str) -> list[tuple]:
+    """DEXA scans of `expr`, at noon so a scan sits in the middle of its day."""
+    return [(datetime.combine(d, time(12)), v) for d, v in con.execute(
+        f"SELECT date, {expr} FROM dexa WHERE {expr} IS NOT NULL ORDER BY date").fetchall()]
+
+
+def _measure(con, expr: str, title: str, unit: str, fmt: str, dexa: tuple | None) -> go.Figure:
+    rows = con.execute(f"SELECT ts, {expr} AS v FROM body_comp WHERE v IS NOT NULL ORDER BY ts").fetchall()
+    scans = _scans(con, dexa[0]) if dexa else []
+    fig = _chart(title, unit, fmt, title, rows, scans, dexa[1] if dexa else "",
+                 [_vat_sd(v) for _, v in scans] if title == "Visceral fat" else None)
+    if rows and title == "Visceral fat":
+        _kg_axis(fig)
+    return fig
+
+
+def _weight(con) -> go.Figure:
+    garmin = con.execute("SELECT coalesce(ts, date::TIMESTAMP), weight_kg FROM weigh_ins ORDER BY 1").fetchall()
+    return _chart("Weight", "kg", ".1f", "Weight", garmin, [], "",
+                  hover_time="%a %d %b %Y")
+
+
+def _chart(title: str, unit: str, fmt: str, name: str, rows: list[tuple], scans: list[tuple], dexa_name: str,
+           sd: list[tuple[float, float, float]] | None = None, hover_time: str = "%a %d %b %Y %H:%M") -> go.Figure:
+    """`rows` as the series named `name`, with DEXA `scans` as diamonds."""
+    fig = style.figure(title, unit, height=300)
+    if not rows:
+        return fig
+    means, level, slope = style.metric(fig, rows, name, style.BLUE, style.BLUE_LIGHT, style.BLUE_DARK,
+                                       unit, fmt, hover_time=hover_time)
+    text = (f"latest {rows[-1][1]:{fmt}} {unit} · 7-day avg {means[-1][1]:{fmt}} {unit} · "
+            + style.trend_text(level, slope, unit, fmt, ".2f"))
+    if scans:
+        _dexa(fig, scans, dexa_name, unit, fmt, sd)
+        text += f" · last DEXA {scans[-1][1]:{fmt}} {unit} ({scans[-1][0]:%d %b %Y})"
+    style.legend(fig)
+    style.subtitle(fig, text)
+    style.time_range(fig, min([rows[0][0], *(t for t, _ in scans)]), rows[-1][0])
+    return fig
 
 
 def _dexa(fig: go.Figure, scans: list[tuple], name: str, unit: str, fmt: str,

@@ -8,7 +8,7 @@ from pathlib import Path
 
 from plotly.io._utils import plotly_cdn_url
 
-from health.charts import blood_pressure, body, sports, weight
+from health.charts import blood_pressure, body, sports
 from health.db import SITE_DIR, connect
 from health.load import load
 
@@ -48,8 +48,7 @@ h1{{font-size:22px;margin:8px 0 4px}} h2{{font-size:15px;color:#52514e;font-weig
 </div>
 <section role="tabpanel" id="tab-health">
 {health_toggles}
-<h2>Garmin</h2><div class="grid">{garmin}</div>
-<h2>Tanita</h2><div class="grid">{tanita}</div>
+<h2>Body</h2><div class="grid">{body}</div>
 <h2>Blood pressure</h2><div class="grid">{blood_pressure}</div>
 </section>
 <section role="tabpanel" id="tab-sports" hidden>
@@ -187,12 +186,10 @@ def _card(fig) -> str:
 def render(con=None) -> Path:
     con = con or connect()
     counts = load(con)
-    tanita_figs = body.figures(con)
     meta = html.escape(f"Built {datetime.now():%Y-%m-%d %H:%M} · "
                        + " · ".join(f"{v} {k.replace('_', ' ')}" for k, v in counts.items()))
     page = PAGE.format(meta=meta, plotly_js=plotly_cdn_url(),
-                       garmin=_card(weight.figure(con)),
-                       tanita="".join(_card(f) for f in tanita_figs),
+                       body="".join(_card(f) for f in body.figures(con)),
                        blood_pressure=_card(blood_pressure.figure(con)),
                        sports="".join(_card(f) for f in sports.figures(con)),
                        health_toggles=_toggles(["readings", "avg", "trend", "dexa", "line"]),
