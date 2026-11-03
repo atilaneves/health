@@ -176,4 +176,4 @@ def _place_legend(fig: go.Figure) -> None:
 
 
 def subtitle(fig: go.Figure, text: str) -> None:
-    fig.update_layout(meta=dict(title=fig.layout.meta["title"], subtitle=text))
+    fig.update_layout(meta={**fig.layout.meta, "subtitle": text})

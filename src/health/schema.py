@@ -35,6 +35,14 @@ CREATE OR REPLACE TABLE activities (
   lon DOUBLE,
   vo2max DOUBLE             -- Garmin's VO2max estimate after it, ml/kg/min (runs only)
 );
+CREATE OR REPLACE TABLE dexa (
+  date DATE PRIMARY KEY,
+  total_kg DOUBLE,
+  fat_kg DOUBLE,
+  lean_kg DOUBLE,           -- lean soft tissue, bone excluded (total = fat + lean + bone)
+  fat_pct DOUBLE,
+  visceral_fat_kg DOUBLE    -- VAT mass (GE CoreScan); see charts.body for the rating conversion
+);
 """
 
 WEIGH_INS = ("date", "ts", "weight_kg")
@@ -43,3 +51,4 @@ BODY_COMP = ("ts", "weight_kg", "body_fat_pct", "visceral_fat", "muscle_mass_kg"
              "body_water_pct")
 ACTIVITIES = ("ts", "type", "name", "distance_km", "avg_speed_kmh", "calories", "avg_hr", "max_hr", "lat", "lon",
               "vo2max")
+DEXA = ("date", "total_kg", "fat_kg", "lean_kg", "fat_pct", "visceral_fat_kg")

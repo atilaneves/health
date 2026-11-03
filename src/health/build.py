@@ -85,10 +85,16 @@ function yRanges(data, [x0, x1]) {{
   }}
   return out;
 }}
+// An axis in `layout.meta.scales` shows the left axis in other units: its range follows it, scaled.
+function scaled(layout, ranges) {{
+  for (const [axis, k] of Object.entries(layout.meta?.scales ?? {{}}))
+    if (ranges.yaxis) ranges[axis] = ranges.yaxis.map(v => v * k);
+  return ranges;
+}}
 function fitY(g) {{
   if (!g._fullLayout.xaxis.range) return;
   const update = {{}};
-  for (const [axis, r] of Object.entries(yRanges(g.data, g._fullLayout.xaxis.range))) update[axis + ".range"] = r;
+  for (const [axis, r] of Object.entries(scaled(g.layout, yRanges(g.data, g._fullLayout.xaxis.range)))) update[axis + ".range"] = r;
   if (!Object.keys(update).length) return;
   g._fitting = true;
   Plotly.relayout(g, update).then(() => g._fitting = false);
@@ -103,7 +109,7 @@ function draw(card) {{
   const shown = kinds[tabOf(card)];
   for (const tr of fig.data) if (tr.meta in shown) tr.visible = shown[tr.meta] ? true : "legendonly";
   if (fig.layout.xaxis?.range)
-    for (const [axis, r] of Object.entries(yRanges(fig.data, fig.layout.xaxis.range))) fig.layout[axis].range = r;
+    for (const [axis, r] of Object.entries(scaled(fig.layout, yRanges(fig.data, fig.layout.xaxis.range)))) fig.layout[axis].range = r;
   const g = card.querySelector(".chart");
   Plotly.newPlot(g, fig.data, fig.layout, config);
   if (fig.layout.updatemenus) initial.set(g, {{range: [...fig.layout.xaxis.range], active: fig.layout.updatemenus[0].active}});
@@ -157,7 +163,7 @@ showTab(tab);
 
 # (trace `meta`, label, on at first): the kinds of line a tab's checkboxes toggle.
 KINDS = [("readings", "Readings", True), ("avg", "Average", True), ("trend", "Trend", True),
-         ("line", "Line between readings", False)]
+         ("dexa", "DEXA", True), ("line", "Line between readings", False)]
 
 
 def _toggles(kinds: list[str]) -> str:
@@ -189,7 +195,7 @@ def render(con=None) -> Path:
                        tanita="".join(_card(f) for f in tanita_figs),
                        blood_pressure=_card(blood_pressure.figure(con)),
                        sports="".join(_card(f) for f in sports.figures(con)),
-                       health_toggles=_toggles(["readings", "avg", "trend", "line"]),
+                       health_toggles=_toggles(["readings", "avg", "trend", "dexa", "line"]),
                        sports_toggles=_toggles(["readings", "trend", "line"]))
     SITE_DIR.mkdir(parents=True, exist_ok=True)
     out = SITE_DIR / "index.html"

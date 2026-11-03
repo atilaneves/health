@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from health import schema
+from health import dexa, schema
 from health.garmin import activities, blood_pressure, weight
 from health.garmin.fetch import default_cache
 from health.tanita import adapter as tanita
@@ -24,6 +24,7 @@ def load(con, cache=None, tanita_export=None) -> dict[str, int]:
                                   blood_pressure.rows(cache.entries("blood_pressure"))),
         "activities": _insert(con, "activities", schema.ACTIVITIES, activities.rows(cache.entries("activities"))),
         "body_comp": 0,
+        "dexa_scans": _insert(con, "dexa", schema.DEXA, dexa.rows()),
     }
     export = tanita_export or latest_export()
     if export:
